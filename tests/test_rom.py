@@ -39,3 +39,42 @@ def test_dual_bases_from_the_suite():
     assert dual_basis("svd", M, 6).min() < 0
     V = pod_basis(rng.standard_normal((30, 12)), 5)
     assert np.allclose(V.T @ V, np.eye(5))
+
+
+class _FlatFloorProblem:
+    """Stub with a flat floor (c = 0) and identity constraints, to test the indicator scales."""
+
+    import scipy.sparse as _sp
+    B = _sp.identity(4, format="csr")
+    char_gap = 0.5
+
+    def offset(self, mu):
+        return np.zeros(4)
+
+    def load(self, mu):
+        return np.array([1.0, 0.0, 0.0, 0.0])
+
+
+def test_indicator_scales_are_stable_without_contact_and_for_a_flat_floor():
+    stub = _FlatFloorProblem()
+    nothing = ReducedSolution(np.ones(4), np.zeros(4), True, 0.0)               # no contact, floor 0, free of penetration
+    for version in (1, 2):
+        value = admissibility_indicator(stub, None, nothing, version)[0]
+        assert np.isfinite(value) and value == 0.0
+    penetrating = ReducedSolution(-np.ones(4), np.zeros(4), True, 0.0)           # B u - c = -1 < 0
+    assert np.isfinite(admissibility_indicator(stub, None, penetrating, 1)[0])
+    assert admissibility_indicator(stub, None, penetrating, 2)[0] == 4.0         # ||g_-|| / s_g = 2 / 0.5 with s_g = max(||c|| = 0, char_gap = 0.5)
+
+
+def test_indicator_version_two_vanishes_for_an_exact_pair_and_rejects_unknown_versions():
+    problem = Membrane(n=15)
+    solver, rng = FullOrderSolver(problem), np.random.default_rng(0)
+    mu = problem.sample(rng, 1)[0]
+    sol = solver.solve(mu)
+    exact = ReducedSolution(sol.u, sol.lam, True, 0.0)
+    assert admissibility_indicator(problem, mu, exact, version=2)[0] < 1e-6
+    try:
+        admissibility_indicator(problem, mu, exact, version=3)
+    except ValueError:
+        return
+    raise AssertionError("unknown version accepted")

@@ -73,6 +73,32 @@ def risk_threshold(scores: np.ndarray, is_failure: np.ndarray, delta: float) -> 
     return float(fail[m_max]) if len(fail) > m_max else np.inf
 
 
+def auc(score_pos: np.ndarray, score_neg: np.ndarray):
+    """Probability that a random silent failure has a larger score than a random good answer (ties count one half);
+    ``None`` if either class is empty. 0.5 = no discrimination, 1 = perfect ranking."""
+    if len(score_pos) == 0 or len(score_neg) == 0:
+        return None
+    s = np.concatenate([score_pos, score_neg])
+    order = np.argsort(s, kind="stable")
+    ranks = np.empty(len(s))
+    i = 0
+    sorted_s = s[order]
+    while i < len(s):                                        # average ranks over ties
+        j = i
+        while j + 1 < len(s) and sorted_s[j + 1] == sorted_s[i]:
+            j += 1
+        ranks[order[i:j + 1]] = 0.5 * (i + j) + 1.0
+        i = j + 1
+    n_pos, n_neg = len(score_pos), len(score_neg)
+    return float((ranks[:n_pos].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg))
+
+
+def effective_sample_size(weights: np.ndarray) -> float:
+    """``(sum w)^2 / sum w^2``: the number of equally weighted samples the weighted sample is worth (0 if empty)."""
+    w = np.asarray(weights, float)
+    return float(w.sum() ** 2 / (w ** 2).sum()) if len(w) and (w ** 2).sum() > 0 else 0.0
+
+
 def heuristic_threshold(fail_scores: np.ndarray, margin: float = 0.9) -> float:
     return margin * float(fail_scores.min()) if len(fail_scores) else -np.inf
 

@@ -20,7 +20,7 @@ from .rom import ReducedModel, admissibility_indicator
 
 log = logging.getLogger(__name__)
 
-FIELDS = ("eta", "err", "converged", "t_rom", "t_eta", "m_rom")           # per query and model
+FIELDS = ("eta", "eta2", "err", "converged", "t_rom", "t_eta", "m_rom")           # per query and model
 FOM_FIELDS = ("it", "m", "t")                                              # full-order iterations, active set, time
 
 
@@ -63,7 +63,8 @@ def evaluate_pool(problem: ContactProblem, solver: FullOrderSolver, models: dict
         for (kind, r), model in models.items():
             red = model.solve(mu, sol.K)
             eta, t_eta = admissibility_indicator(problem, mu, red)
-            row = {"eta": eta, "err": energy_error(sol.K, sol.u, red.u), "converged": float(red.converged),
+            eta2, _ = admissibility_indicator(problem, mu, red, version=2)
+            row = {"eta": eta, "eta2": eta2, "err": energy_error(sol.K, sol.u, red.u), "converged": float(red.converged),
                    "t_rom": red.seconds, "t_eta": t_eta, "m_rom": len(red.active)}
             for name in FIELDS:
                 out[f"{tag}|{kind}|{r}|{name}"][i] = row[name]

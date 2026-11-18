@@ -45,6 +45,11 @@ class ContactProblem:
         """Constraint offset ``c`` (the floor height seen by the constrained unknowns)."""
         raise NotImplementedError
 
+    @property
+    def char_gap(self) -> float:
+        """Characteristic gap scale: norm of the offset at the centre of the training box."""
+        return float(np.linalg.norm(self.offset(0.5 * (self.lo + self.hi))))
+
     def sample(self, rng: np.random.Generator, n: int) -> np.ndarray:
         """``n`` parameters, uniform in the training box."""
         return self.lo + (self.hi - self.lo) * rng.random((n, len(self.lo)))

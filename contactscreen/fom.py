@@ -27,6 +27,8 @@ class FomSolution:
     c: np.ndarray
     active_mask: np.ndarray
     seconds: float
+    route: str | None = None
+    fallbacks: int = 0                # routes that failed before the one that produced the answer
 
     @property
     def active(self) -> np.ndarray:
@@ -46,7 +48,8 @@ class FullOrderSolver:
         res = solve_contact_static_sparse(K, f, p.B, c, route=self.route, active0=active0, fallback=fallback)
         seconds = time.perf_counter() - start
         mask = np.asarray(res.active_mask, bool) if res.active_mask is not None else res.lam > 0
-        return FomSolution(res.u, res.lam, res.gap, int(res.iterations), bool(res.converged), K, f, c, mask, seconds)
+        return FomSolution(res.u, res.lam, res.gap, int(res.iterations), bool(res.converged), K, f, c, mask, seconds,
+                           res.route, len(res.fallbacks or []))
 
 
 def kkt_residuals(problem: ContactProblem, sol: FomSolution) -> dict:

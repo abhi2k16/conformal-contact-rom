@@ -13,6 +13,14 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "results"
 AUDIT_DIR = RESULTS / "audits"
 
+# Seeds of every random choice outside the audit replicates (replicate seeds are the audit file seeds).
+SEEDS = {
+    "split": 0,             # random calibration/test splits (run_coverage, run_outside, calibration subsets of run_fallback)
+    "bootstrap": 1,         # bootstrap over replicates
+    "enriched": 0,          # calibration draws of run_enriched
+    "timing_queries": 10_000,   # run_fallback draws its fresh queries with seed timing_queries + replicate seed
+}
+
 PROBLEMS = {
     "membrane": lambda: Membrane(),
     "block": lambda: ElasticBlock(n_xy=12, nz=3),

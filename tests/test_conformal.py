@@ -72,3 +72,22 @@ def test_vectorised_weighted_thresholds_match_scalar_version():
     for alpha in (0.05, 0.1, 0.3):
         expected = [weighted_threshold(s, w, wt, alpha) for wt in w_tests]
         assert np.array_equal(weighted_thresholds(s, w, w_tests, alpha), expected)
+
+
+def test_auc_known_values_and_ties():
+    from contactscreen.conformal import auc
+    assert auc(np.array([3.0, 4.0]), np.array([1.0, 2.0])) == 1.0
+    assert auc(np.array([1.0, 2.0]), np.array([3.0, 4.0])) == 0.0
+    assert auc(np.array([1.0, 1.0]), np.array([1.0, 1.0])) == 0.5          # all tied
+    assert auc(np.array([2.0, 5.0]), np.array([1.0, 3.0])) == 0.75         # pairs: 2>1 yes, 2>3 no, 5>1 yes, 5>3 yes
+    assert auc(np.array([]), np.array([1.0])) is None
+    rng = np.random.default_rng(0)
+    assert abs(auc(rng.normal(size=4000), rng.normal(size=4000)) - 0.5) < 0.03
+
+
+def test_effective_sample_size():
+    from contactscreen.conformal import effective_sample_size
+    assert effective_sample_size(np.ones(10)) == 10.0
+    assert effective_sample_size(np.array([1.0, 0.0, 0.0])) == 1.0
+    assert effective_sample_size(np.array([])) == 0.0
+    assert effective_sample_size(np.array([1.0, 2.0, 3.0])) < 3.0

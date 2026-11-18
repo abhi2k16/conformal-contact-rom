@@ -23,9 +23,10 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from contactscreen.audit import load_audit                                           # noqa: E402
-from contactscreen.config import AUDIT_DIR, PROBLEMS, RESULTS                       # noqa: E402
-from contactscreen.conformal import (conformal_threshold, heuristic_threshold, labels, min_failures,   # noqa: E402
+from contactscreen.config import AUDIT_DIR, PROBLEMS, RESULTS, SEEDS               # noqa: E402
+from contactscreen.conformal import (auc, conformal_threshold, heuristic_threshold, labels, min_failures,   # noqa: E402
                                      outcome, risk_threshold)
+from contactscreen.environment import environment_info                              # noqa: E402
 
 log = logging.getLogger("run_coverage")
 
@@ -54,10 +55,10 @@ def subset(lab, idx):
     return type(lab)(lab.eta[idx], lab.silent[idx], lab.good[idx], lab.converged[idx])
 
 
-def replicate_counts(audit, key: tuple, n_cal: int, rng: np.random.Generator) -> dict:
+def replicate_counts(audit, key: tuple, n_cal: int, rng: np.random.Generator, field: str) -> dict:
     """Counts per rule, summed over ``N_SPLITS`` random calibration/test splits of the in-range pool."""
     g = lambda f: audit.arrays[f"pool|{key[0]}|{key[1]}|{f}"]
-    lab = labels(g("eta"), g("err"), g("converged"))
+    lab = labels(g(field), g("err"), g("converged"))
     totals: dict = {}
     for _ in range(N_SPLITS):
         perm = rng.permutation(len(lab.eta))
@@ -94,19 +95,23 @@ def summarise(per_replicate: list, boot_rng) -> dict:
             "n_silent_test": int(arr[:, COLS.index("silent")].sum())}
 
 
-def failure_rates(audits: list, key: tuple, boot_rng) -> dict:
-    """Experiment B: silent-failure rate of a model and the calibration size it implies."""
-    counts = []
+def failure_rates(audits: list, key: tuple, boot_rng, field: str) -> dict:
+    """Experiment B: silent-failure rate of a model, the calibration size it implies, and the discrimination (AUC) of the indicator."""
+    counts, aucs = [], []
     for a in audits:
-        lab = labels(*(a.arrays[f"pool|{key[0]}|{key[1]}|{f}"] for f in ("eta", "err", "converged")))
+        lab = labels(*(a.arrays[f"pool|{key[0]}|{key[1]}|{f}"] for f in (field, "err", "converged")))
         counts.append([lab.silent.sum(), len(lab.eta)])
+        value = auc(lab.eta[lab.silent], lab.eta[lab.good])
+        if value is not None:
+            aucs.append(value)
     arr = np.array(counts, float)
     p = arr[:, 0].sum() / arr[:, 1].sum()
     draws = boot_rng.integers(0, len(arr), size=(N_BOOT, len(arr)))
     ps = arr[draws, 0].sum(axis=1) / arr[draws, 1].sum(axis=1)
     lo, hi = (float(x) for x in np.percentile(ps, CI))
     need = lambda rate, a: math.ceil(min_failures(a) / rate) if rate > 0 else None
-    return {"p": float(p), "p_ci": [lo, hi],
+    auc_ci = [float(x) for x in np.percentile(boot_rng.choice(aucs, size=(N_BOOT, len(aucs))).mean(axis=1), CI)] if aucs else None
+    return {"p": float(p), "p_ci": [lo, hi], "auc": float(np.mean(aucs)) if aucs else None, "auc_ci": auc_ci,
             **{f"queries_needed@{a}": need(p, a) for a in ALPHAS},
             **{f"queries_needed_range@{a}": [need(hi, a), need(lo, a)] for a in ALPHAS}}
 
@@ -115,6 +120,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--problem", choices=sorted(PROBLEMS), required=True)
+    parser.add_argument("--indicator", choices=("eta", "eta2"), default="eta", help="indicator version (eta2: problem-level scales)")
     args = parser.parse_args()
     files = sorted(AUDIT_DIR.glob(f"{args.problem}_seed*.npz"))
     if not files:
@@ -122,19 +128,20 @@ def main() -> None:
     audits = [load_audit(f) for f in files]
     models = [tuple(m) for m in audits[0].meta["settings"]["models"]]
     n_pool = len(audits[0].arrays["pool|mu"])
-    rng, boot_rng = np.random.default_rng(0), np.random.default_rng(1)
-    out = {"problem": args.problem, "n_replicates": len(audits), "n_pool": n_pool, "n_splits": N_SPLITS, "cells": {}, "rates": {}}
+    rng, boot_rng = np.random.default_rng(SEEDS["split"]), np.random.default_rng(SEEDS["bootstrap"])
+    out = {"problem": args.problem, "indicator": args.indicator, "n_replicates": len(audits), "n_pool": n_pool, "n_splits": N_SPLITS,
+           "n_boot": N_BOOT, "seeds": SEEDS, "environment": environment_info(), "cells": {}, "rates": {}}
     for key in models:
-        out["rates"][f"{key[0]}|{key[1]}"] = failure_rates(audits, key, boot_rng)
+        out["rates"][f"{key[0]}|{key[1]}"] = failure_rates(audits, key, boot_rng, args.indicator)
         for n_cal in n_cal_grid(n_pool):
             per_rule: dict = {}
             for a in audits:
-                for rule, row in replicate_counts(a, key, n_cal, rng).items():
+                for rule, row in replicate_counts(a, key, n_cal, rng, args.indicator).items():
                     per_rule.setdefault(rule, []).append(row)
             for rule, rows in per_rule.items():
                 out["cells"][f"{key[0]}|{key[1]}|{n_cal}|{rule}"] = summarise(rows, boot_rng)
         log.info("model %s done", key)
-    path = RESULTS / f"coverage_{args.problem}.json"
+    path = RESULTS / (f"coverage_{args.problem}.json" if args.indicator == "eta" else f"coverage_{args.problem}_{args.indicator}.json")
     path.write_text(json.dumps(out, indent=1), encoding="utf-8")
     log.info("wrote %s", path)
     print_tables(out, models)
@@ -142,11 +149,11 @@ def main() -> None:
 
 def print_tables(out: dict, models: list) -> None:
     f = lambda x, w=6: " " * (w - 2) + "--" if x is None else f"{x:{w}.3f}"
-    print(f"\n=== {out['problem']}: {out['n_replicates']} replicates, pool {out['n_pool']}")
+    print(f"\n=== {out['problem']} ({out['indicator']}): {out['n_replicates']} replicates, pool {out['n_pool']}")
     print("B: silent-failure rate p [95% CI] and calibration queries needed (alpha 0.05 | 0.10)")
     for key in models:
         r = out["rates"][f"{key[0]}|{key[1]}"]
-        print(f"  {key[0]:<4}{key[1]:>3}  p {r['p']:.3f} [{r['p_ci'][0]:.3f},{r['p_ci'][1]:.3f}]   need {r['queries_needed@0.05']} | {r['queries_needed@0.1']}")
+        print(f"  {key[0]:<4}{key[1]:>3}  p {r['p']:.3f} [{r['p_ci'][0]:.3f},{r['p_ci'][1]:.3f}]   need {r['queries_needed@0.05']} | {r['queries_needed@0.1']}   AUC {'--' if r['auc'] is None else format(r['auc'], '.3f')}")
     n_show = max(n for n in n_cal_grid(out["n_pool"]) if n <= 160)
     print(f"A: n_cal = {n_show}: miss rate [CI] | false-alarm rate | defined share")
     for key in models:

@@ -20,14 +20,16 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from contactscreen.audit import load_audit                                  # noqa: E402
-from contactscreen.config import AUDIT_DIR, PROBLEMS, RESULTS, make_problem    # noqa: E402
+from contactscreen.config import AUDIT_DIR, PROBLEMS, RESULTS, SEEDS, make_problem    # noqa: E402
+from contactscreen.environment import environment_info                       # noqa: E402
 from contactscreen.conformal import conformal_threshold, flagged, heuristic_threshold, labels, risk_threshold   # noqa: E402
 
 log = logging.getLogger("run_outside")
 
 N_CAL = 160
 N_SPLITS = 100
-MARGINS = (None, 0.5, 0.25, 0.1, 0.0)             # None: no check; 0.0: every query outside the box is flagged
+MARGINS = (None, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.0)    # None: no check; 0.0: every query outside the box is flagged
+                                                          # distances are in units of the training-box width per coordinate (l_inf)
 RULES = {"cc0.05": lambda lab: (conformal_threshold(lab.eta[lab.silent], 0.05), False),
          "cc0.1": lambda lab: (conformal_threshold(lab.eta[lab.silent], 0.10), False),
          "crc0.01": lambda lab: (risk_threshold(lab.eta, lab.silent, 0.01), False),
@@ -43,6 +45,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--problem", choices=sorted(PROBLEMS), required=True)
+    parser.add_argument("--indicator", choices=("eta", "eta2"), default="eta", help="indicator version (eta2: problem-level scales)")
     args = parser.parse_args()
     files = sorted(AUDIT_DIR.glob(f"{args.problem}_seed*.npz"))
     if not files:
@@ -50,14 +53,15 @@ def main() -> None:
     problem = make_problem(args.problem)
     audits = [load_audit(f) for f in files]
     models = [tuple(m) for m in audits[0].meta["settings"]["models"]]
-    rng = np.random.default_rng(0)
-    out = {"problem": args.problem, "n_replicates": len(audits), "n_cal": N_CAL, "cells": {}}
+    rng = np.random.default_rng(SEEDS["split"])
+    out = {"problem": args.problem, "indicator": args.indicator, "n_replicates": len(audits), "n_cal": N_CAL, "n_splits": N_SPLITS,
+           "margins": [m for m in MARGINS if m is not None], "seeds": SEEDS, "environment": environment_info(), "cells": {}}
     for key in models:
         acc = {(rule, m): np.zeros(4) for rule in RULES for m in MARGINS}        # miss, silent, flagged, n
         for a in audits:
             g = lambda tag, f: a.arrays[f"{tag}|{key[0]}|{key[1]}|{f}"]
-            pool = labels(g("pool", "eta"), g("pool", "err"), g("pool", "converged"))
-            far = labels(g("out", "eta"), g("out", "err"), g("out", "converged"))
+            pool = labels(g("pool", args.indicator), g("pool", "err"), g("pool", "converged"))
+            far = labels(g("out", args.indicator), g("out", "err"), g("out", "converged"))
             dist = box_distance(a.arrays["out|mu"], problem.lo, problem.hi)
             for _ in range(N_SPLITS):
                 idx = rng.permutation(len(pool.eta))[:N_CAL]
@@ -72,7 +76,7 @@ def main() -> None:
             out["cells"][f"{key[0]}|{key[1]}|{rule}|" + ("none" if m is None else str(m))] = {
                 "miss": float(v[0] / v[1]) if v[1] else None, "flagged": float(v[2] / v[3]), "n_silent": int(v[1] / N_SPLITS / len(audits))}
         log.info("model %s done", key)
-    path = RESULTS / f"outside_{args.problem}.json"
+    path = RESULTS / (f"outside_{args.problem}.json" if args.indicator == "eta" else f"outside_{args.problem}_{args.indicator}.json")
     path.write_text(json.dumps(out, indent=1), encoding="utf-8")
     log.info("wrote %s", path)
     print_table(out, models, args.problem)

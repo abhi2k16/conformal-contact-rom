@@ -17,6 +17,8 @@ from rom_engine import ContactROM
 from .problems import ContactProblem
 
 ACTIVE_TOL = 1e-12
+TINY = 1e-300                    # division guard only
+E_LAMBDA = 0.05                  # indicator v2: multiplier scale never below this fraction of ||f||
 
 
 @dataclass
@@ -50,19 +52,27 @@ class ReducedModel:
         return ReducedSolution(res.u, res.lam, bool(res.ok), seconds)
 
 
-def admissibility_indicator(problem: ContactProblem, mu: np.ndarray, sol: ReducedSolution) -> tuple:
+def admissibility_indicator(problem: ContactProblem, mu: np.ndarray, sol: ReducedSolution, version: int = 1) -> tuple:
     """Dimensionless violation of the full contact conditions by a lifted reduced solution, and its cost in seconds.
 
     ``eta = ||lam_-|| / s_lam + ||g_-|| / s_g + sqrt(sum lam_+ |g| / (s_lam s_g))`` with the lifted multiplier ``lam``,
-    the full gap ``g = B u - c`` and the scales ``s_lam = ||lam||``, ``s_g = ||c||``. One sparse product with ``B``, no
-    stiffness solve. ``eta = 0`` means the lifted pair is admissible.
+    the full gap ``g = B u - c``. Version 1 scales by the answer itself, ``s_lam = ||lam||``, ``s_g = ||c||``. Version 2 uses
+    problem-level floors, ``s_lam = max(||lam||, E_LAMBDA ||f||)``, ``s_g = max(||c||, char_gap)``, so it is stable when
+    the lifted multiplier is tiny or the floor is flat. One sparse product with ``B``, no stiffness solve. ``eta = 0``
+    means the lifted pair is admissible.
     """
     start = time.perf_counter()
     c = problem.offset(mu)
     gap = problem.B @ sol.u - c
     lam = sol.lam
-    s_lam, s_gap = max(np.linalg.norm(lam), 1e-300), max(np.linalg.norm(c), 1e-300)
+    if version == 1:
+        s_lam, s_gap = max(np.linalg.norm(lam), TINY), max(np.linalg.norm(c), TINY)
+    elif version == 2:                              # problem-level floors: stable for lam~ ~ 0 and for a flat floor c = 0
+        s_lam = max(np.linalg.norm(lam), E_LAMBDA * np.linalg.norm(problem.load(mu)), TINY)
+        s_gap = max(np.linalg.norm(c), problem.char_gap, TINY)
+    else:
+        raise ValueError("version must be 1 or 2")
     neg = np.linalg.norm(np.minimum(lam, 0.0)) / s_lam
     viol = np.linalg.norm(np.minimum(gap, 0.0)) / s_gap
-    comp = np.sqrt(np.sum(np.maximum(lam, 0.0) * np.abs(gap)) / (s_lam * s_gap))
+    comp = np.sqrt(np.sum(np.maximum(lam, 0.0) * np.abs(gap)) / s_lam / s_gap)      # two divisions: the product of two guards underflows
     return float(neg + viol + comp), time.perf_counter() - start
