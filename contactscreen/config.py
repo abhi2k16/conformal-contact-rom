@@ -19,6 +19,7 @@ SEEDS = {
     "bootstrap": 1,         # bootstrap over replicates
     "enriched": 0,          # calibration draws of run_enriched
     "timing_queries": 10_000,   # run_fallback draws its fresh queries with seed timing_queries + replicate seed
+    "features_fit": 20_000,     # generate_features draws the score-fitting queries with seed features_fit + replicate seed
 }
 
 PROBLEMS = {
@@ -35,6 +36,15 @@ SETTINGS = {
     "layered": dict(n_train=100, r_primal=30, n_pool=300, n_outside=150,
                     models=(("svd", 12), ("nmf", 8), ("nmf", 12), ("nmf", 16), ("nmf", 24))),
 }
+
+
+# Queries (with full-order solves) used only to fit the learned score; independent of every calibration/test query.
+FIT_POOL = {"membrane": 800, "block": 400, "layered": 300}
+FEATURE_DIR = RESULTS / "features"
+
+
+def features_path(name: str, seed: int) -> Path:
+    return FEATURE_DIR / f"{name}_seed{seed}.npz"
 
 
 def make_problem(name: str) -> ContactProblem:
