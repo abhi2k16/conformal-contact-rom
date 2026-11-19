@@ -21,6 +21,7 @@ STRIP = [
     r"\$\$.*?\$\$", r"\\\[.*?\\\]", r"\$[^$]*\$",     # math
     r"\\(textbf|emph|texttt)\b",                      # keep argument text, drop the command name
     r"\b(NMF|SVD)(~|\s)?\d+",                          # model names (dual-basis size), not results
+    r"^\s*\[\d+\]\s*$",                                # option left after \begin{algorithmic} is stripped, e.g. [1]
     r"\\(setlength|input)\{[^{}]*\}\{?[^{}]*\}?",      # layout commands and file names
 ]
 ALLOWED = {"95", "90"}                                   # fixed choices of the protocol, not results

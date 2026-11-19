@@ -183,6 +183,12 @@ def summary_numbers() -> dict:
     j = load("learned_speedup_layered.json")
     t_cold = sum(v["t_cold_ms_mean"] for v in sp.values()) / len(sp)
     out["sum.J.calib.seconds"] = f"{j['budget'] * t_cold / 1000:.0f}"
+    # Break-even number of online queries: the budget of calibration solves (each about one cold full-order solve)
+    # is repaid when the saving per query, t_cold (1 - 1/S), has accumulated: Q = budget / (1 - 1/S), S = net speedup.
+    for kind in ("speedup_cold", "speedup_warm"):
+        q = [j["budget"] / (1.0 - 1.0 / v["cells"]["xconf@160|cc0.1"][kind]) for v in sp.values()
+             if v["cells"]["xconf@160|cc0.1"][kind] > 1.0]
+        out[f"sum.J.breakeven.{kind}.min"], out[f"sum.J.breakeven.{kind}.max"] = f"{min(q):.0f}", f"{max(q):.0f}"
     # L: cells (variant, eps', alpha, model, benchmark) in which lower-threshold calibration beat the standard rule,
     # i.e. was defined more often or had a lower false-alarm rate by more than TOL; M: largest |miss - alpha| where defined
     tol, total, dev = 0.005, 0, {0.05: 0.0, 0.1: 0.0}
