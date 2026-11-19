@@ -1,0 +1,20 @@
+{
+ "problem": "membrane",
+ "replicate": 0,
+ "model": "nmf|24",
+ "pool_index": 167,
+ "mu": [
+  126.33530862334366,
+  0.378798360183015,
+  0.392480701346937
+ ],
+ "y_row": 0.4,
+ "energy_error": 0.06742383932772988,
+ "eta": 0.08305046195181383,
+ "penetration_max": 0.041030228123196844,
+ "penetration_max_rel": 0.04389198558322299,
+ "penetrating_nodes": 12,
+ "n_contact": 144,
+ "active_fom": 24,
+ "reduced_converged": true
+}

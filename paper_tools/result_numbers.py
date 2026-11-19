@@ -15,7 +15,8 @@ from pathlib import Path
 
 RESULTS = Path(__file__).resolve().parents[1] / "results"
 SKIP = {"environment", "seeds"}
-COUNT_FIELDS = ("n_orders_M", "n_silent", "missed", "n_eval", "n_time", "draws", "n_replicates", "n_pool", "n_splits", "n_boot",
+COUNT_FIELDS = ("active_fom", "n_contact", "penetrating_nodes", "pool_index", "n_silent_test_per_replicate",
+                "n_good_test_per_replicate", "n_orders_M", "n_silent", "missed", "n_eval", "n_time", "draws", "n_replicates", "n_pool", "n_splits", "n_boot",
                 "n_cal", "repeats", "replicate", "budget", "n_draws", "solves_with_fallback_route", "queries_needed")
 EPS_ALPHA = 1e-12
 S_TOL = 0.01                  # experiment S: change of the false-alarm rate counted as a difference

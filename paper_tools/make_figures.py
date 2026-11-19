@@ -5,7 +5,8 @@ in ``paper/figures/``. Hidden series are avoided with open markers and distinct 
 
 Usage, from the project folder:
     .venv\\Scripts\\python paper_tools\\make_figures.py
-Outputs: ``figures/calibration_cost.pdf`` (Section 7), ``figures/outside_tradeoff.pdf`` (Section 8),
+Outputs: ``figures/silent_failure.pdf`` (Section 2), ``figures/roc_curves.pdf`` (Section 6), from the data written by
+``make_figure_data.py``; ``figures/calibration_cost.pdf`` (Section 7), ``figures/outside_tradeoff.pdf`` (Section 8),
 ``figures/query_cost.pdf`` and ``figures/layered_speedup.pdf`` (Section 9).
 """
 
@@ -138,12 +139,62 @@ def layered_speedup() -> None:
     save(fig, "layered_speedup.pdf")
 
 
+def silent_failure() -> None:
+    """One silent failure (membrane, NMF 24): displacement and multipliers along a row of candidate contact nodes."""
+    import numpy as np
+
+    d = np.load(RESULTS / "figure_silent_failure.npz")
+    fig, (top, bottom) = plt.subplots(2, 1, figsize=(W_IN, 0.62 * W_IN), sharex=True,
+                                      gridspec_kw={"height_ratios": [1.6, 1.0]})
+    top.plot(d["x"], d["u_fom"], color="black", lw=2.6, alpha=0.45, label="full-order $u$")
+    top.plot(d["x"], d["u_rom"], color="#1f77b4", lw=1.3, ls="--", label="reduced, lifted $\\tilde{u}$")
+    top.plot(d["xc"], d["floor"], ls="none", marker="_", ms=9, mew=2, color="0.35", label="obstacle at contact nodes")
+    xr = np.interp(d["xc"], d["x"], d["u_rom"])
+    below = xr < d["floor"]
+    top.plot(d["xc"][below], xr[below], ls="none", marker="o", mfc="none", mec="#d62728", ms=7, mew=1.4,
+             label="penetration ($\\tilde{g} < 0$)")
+    top.set_ylabel("displacement")
+    top.grid(True, lw=0.4, alpha=0.5)
+    bottom.plot(d["xc"], d["lam_fom"], ls="none", marker="o", mfc="none", mec="black", ms=6, label="full-order $\\lambda$")
+    bottom.plot(d["xc"], d["lam_rom"], ls="none", marker="x", color="#1f77b4", ms=6, label="reduced, lifted $\\tilde{\\lambda}$")
+    bottom.set_xlabel("$x$ along the row of candidate contact nodes")
+    bottom.set_ylabel("contact multiplier")
+    bottom.grid(True, lw=0.4, alpha=0.5)
+    handles = top.get_legend_handles_labels()[0] + bottom.get_legend_handles_labels()[0]
+    labels_ = top.get_legend_handles_labels()[1] + bottom.get_legend_handles_labels()[1]
+    fig.legend(handles, labels_, loc="lower center", ncol=3, frameon=False)
+    fig.tight_layout(rect=[0, 0.13, 1, 1])
+    save(fig, "silent_failure.pdf")
+
+
+def roc_curves() -> None:
+    """ROC curves of eta, the split-fitted and the cross-fitted learned indicator, averaged over replicates."""
+    import numpy as np
+
+    d, meta = np.load(RESULTS / "figure_roc.npz"), load("figure_roc.json")
+    fig, axes = plt.subplots(1, 2, figsize=(W_IN, 0.5 * W_IN), sharey=True)
+    styles = {"eta": ("$\\eta$", "#7f7f7f", "-"), "split": ("learned, split", "#ff7f0e", "--"),
+              "xconf": ("learned, cross-fitted", "#1f77b4", "-")}
+    for ax, (name, label) in zip(axes, (("block", "Block, NMF 8"), ("layered", "Layered block, NMF 12"))):
+        for variant, (vlabel, color, ls) in styles.items():
+            ax.plot(d["fpr_grid"], d[f"{name}|{variant}|tpr"], color=color, ls=ls, lw=1.6,
+                    label=f"{vlabel} (AUC {meta[name]['auc_mean'][variant]:.2f})")
+        ax.plot([0, 1], [0, 1], color="0.6", lw=0.8, ls=":")
+        ax.set_title(label)
+        ax.set_xlabel("false-alarm rate")
+        ax.legend(loc="lower right", frameon=False)
+        ax.grid(True, lw=0.4, alpha=0.5)
+    axes[0].set_ylabel("share of silent failures flagged")
+    fig.tight_layout()
+    save(fig, "roc_curves.pdf")
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     import sys
     sys.path.insert(0, str(ROOT))
     plt.rcParams.update(STYLE)
-    for draw in (calibration_cost, outside_tradeoff, query_cost, layered_speedup):
+    for draw in (silent_failure, roc_curves, calibration_cost, outside_tradeoff, query_cost, layered_speedup):
         draw()
     if not math.isfinite(W_IN):
         raise ValueError("bad width")
