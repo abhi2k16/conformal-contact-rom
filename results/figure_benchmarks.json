@@ -1,0 +1,58 @@
+{
+ "membrane": {
+  "mu": [
+   115.0,
+   0.5,
+   0.5
+  ],
+  "param_names": [
+   "peak load",
+   "centre x",
+   "centre y"
+  ],
+  "n_active": 24,
+  "n_contact": 144,
+  "d0": 0.3,
+  "kappa": 1.5,
+  "depth": 0.0,
+  "layered": false
+ },
+ "block": {
+  "mu": [
+   0.35,
+   0.5,
+   0.5
+  ],
+  "param_names": [
+   "pressure",
+   "foundation x",
+   "foundation y"
+  ],
+  "n_active": 13,
+  "n_contact": 121,
+  "d0": 0.02,
+  "kappa": 1.0,
+  "depth": 0.5,
+  "layered": false
+ },
+ "layered": {
+  "mu": [
+   1.25,
+   0.35,
+   0.5,
+   0.5
+  ],
+  "param_names": [
+   "stiffness ratio",
+   "pressure",
+   "foundation x",
+   "foundation y"
+  ],
+  "n_active": 21,
+  "n_contact": 225,
+  "d0": 0.02,
+  "kappa": 1.0,
+  "depth": 0.5,
+  "layered": true
+ }
+}

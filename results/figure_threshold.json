@@ -1,0 +1,28 @@
+{
+ "membrane": {
+  "replicate": 0,
+  "model": "nmf|24",
+  "n_cal": 160,
+  "alpha": 0.1,
+  "n_fail": 81,
+  "n_good": 79,
+  "k": 8,
+  "tau": 0.060728073123444165,
+  "n_fail_accepted": 7,
+  "n_good_flagged": 14,
+  "share_good_flagged": 0.17721518987341772
+ },
+ "block": {
+  "replicate": 0,
+  "model": "nmf|12",
+  "n_cal": 160,
+  "alpha": 0.1,
+  "n_fail": 21,
+  "n_good": 139,
+  "k": 2,
+  "tau": 0.005492843973926682,
+  "n_fail_accepted": 1,
+  "n_good_flagged": 136,
+  "share_good_flagged": 0.9784172661870504
+ }
+}

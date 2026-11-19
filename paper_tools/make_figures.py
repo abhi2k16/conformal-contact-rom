@@ -190,12 +190,128 @@ def roc_curves() -> None:
     save(fig, "roc_curves.pdf")
 
 
+def _sketch(ax, kind: str, meta: dict) -> None:
+    """Side view (x-z, through the load or foundation centre) of one benchmark; not to scale."""
+    import numpy as np
+    from matplotlib.patches import Rectangle
+
+    x = np.linspace(0.0, 1.0, 101)
+    gap_draw = 0.12                                   # drawn gap at the centre (exaggerated)
+    if kind == "membrane":
+        ax.plot([0, 1], [0, 0], color="black", lw=2.2)
+        floor = -(gap_draw + 0.35 * (x - 0.5) ** 2 / 0.25)
+        for xs in (0.0, 1.0):
+            ax.plot([xs], [0], marker="^", color="black", ms=8)
+        top, body_label = 0.0, None
+    else:
+        depth = 0.5
+        top = depth
+        if meta["layered"]:
+            ax.add_patch(Rectangle((0, 0), 1, depth / 2, facecolor="#c6dbef", edgecolor="black", lw=1.0))
+            ax.add_patch(Rectangle((0, depth / 2), 1, depth / 2, facecolor="#fdd0a2", edgecolor="black", lw=1.0))
+            ax.text(0.5, 0.75 * depth, "$\\rho_E E$", ha="center", va="center", fontsize=9)
+            ax.text(0.5, 0.25 * depth, "$E$", ha="center", va="center", fontsize=9)
+        else:
+            ax.add_patch(Rectangle((0, 0), 1, depth, facecolor="#e0e0e0", edgecolor="black", lw=1.0))
+        for xs, sign in ((0.0, -1), (1.0, 1)):
+            for z in np.linspace(0.02, depth - 0.02, 6):
+                ax.plot([xs, xs + 0.05 * sign], [z, z + 0.05], color="black", lw=0.8)
+        floor = -(gap_draw + 0.35 * (x - 0.5) ** 2 / 0.25)
+        body_label = None
+    for xa in np.linspace(0.1, 0.9, 9):              # Gaussian load or pressure, downward
+        h = 0.32 * np.exp(-(xa - 0.5) ** 2 / (2 * 0.18 ** 2))
+        ax.annotate("", xy=(xa, top + 0.02), xytext=(xa, top + 0.02 + h),
+                    arrowprops=dict(arrowstyle="->", lw=1.0, color="#d62728"))
+    ax.plot(x, floor, color="0.25", lw=1.2)
+    ax.fill_between(x, floor, floor.min() - 0.15, color="0.85", hatch="///", edgecolor="0.6", lw=0)
+    ax.annotate("", xy=(0.5, floor[50]), xytext=(0.5, 0.0), arrowprops=dict(arrowstyle="<->", lw=0.8))
+    ax.text(0.53, floor[50] / 2, "gap", fontsize=8, va="center")
+    if body_label:
+        ax.text(0.02, 0.06, body_label, fontsize=8)
+    ax.set_xlim(-0.08, 1.08)
+    ax.set_ylim(floor.min() - 0.15, top + 0.4)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+
+def benchmarks() -> None:
+    """Benchmark sketches (top) and one full-order solution in contact per benchmark (bottom)."""
+    import numpy as np
+
+    d, meta = np.load(RESULTS / "figure_benchmarks.npz"), load("figure_benchmarks.json")
+    fig, axes = plt.subplots(2, 3, figsize=(W_IN, 0.66 * W_IN), gridspec_kw={"height_ratios": [0.8, 1.0]})
+    titles = {"membrane": "Membrane", "block": "Block", "layered": "Layered block"}
+    for j, name in enumerate(("membrane", "block", "layered")):
+        _sketch(axes[0, j], name, meta[name])
+        axes[0, j].set_title(titles[name])
+        ax = axes[1, j]
+        if name == "membrane":
+            xy, field = d["membrane|xy"], d["membrane|u"]
+        else:
+            xy, field = d[f"{name}|xy_contact"], d[f"{name}|normal_disp"]
+        im = ax.tricontourf(xy[:, 0], xy[:, 1], field, levels=14, cmap="viridis")
+        xc, act = d[f"{name}|xy_contact"], d[f"{name}|active"] > 0.5
+        ax.plot(xc[~act, 0], xc[~act, 1], "o", ms=2.5, mfc="none", mec="white", mew=0.6, ls="none")
+        ax.plot(xc[act, 0], xc[act, 1], "o", ms=3.5, color="#d62728", ls="none")
+        ax.set_aspect("equal")
+        ax.set_xticks([0, 0.5, 1])
+        ax.set_yticks([0, 0.5, 1] if j == 0 else [])
+        ax.set_xlabel("$x$")
+        if j == 0:
+            ax.set_ylabel("$y$")
+        cb = fig.colorbar(im, ax=ax, orientation="horizontal", fraction=0.06, pad=0.28, aspect=18)
+        cb.ax.tick_params(labelsize=8)
+        lo_v, hi_v = float(field.min()), float(field.max())
+        cb.set_ticks([lo_v, 0.5 * (lo_v + hi_v), hi_v])
+        cb.set_ticklabels([f"{v:.2g}" for v in (lo_v, 0.5 * (lo_v + hi_v), hi_v)])
+        cb.set_label("displacement $u$" if name == "membrane" else "bottom-face $u_z$", fontsize=8)
+    handles = [plt.Line2D([], [], marker="o", ls="none", color="#d62728", ms=4, label="candidate node in contact"),
+               plt.Line2D([], [], marker="o", ls="none", mfc="none", mec="0.3", ms=4, label="candidate node not in contact")]
+    fig.legend(handles=handles, loc="lower center", ncol=2, frameon=False)
+    fig.tight_layout(rect=[0, 0.05, 1, 1])
+    save(fig, "benchmarks.pdf")
+
+
+def threshold_figure() -> None:
+    """Indicator values of calibration failures and good answers, and the class-conditional threshold."""
+    import numpy as np
+
+    d, meta = np.load(RESULTS / "figure_threshold.npz"), load("figure_threshold.json")
+    rng = np.random.default_rng(0)                    # jitter only
+    fig, axes = plt.subplots(2, 1, figsize=(W_IN, 0.55 * W_IN))
+    titles = {"membrane": "Membrane, NMF 24", "block": "Block, NMF 12"}
+    for ax, name in zip(axes, ("membrane", "block")):
+        m = meta[name]
+        fail, good = d[f"{name}|fail"], d[f"{name}|good"]
+        floor = 0.5 * min(fail[fail > 0].min(), good[good > 0].min())
+        fail, good = np.maximum(fail, floor), np.maximum(good, floor)
+        lo, hi = min(fail.min(), good.min()) / 1.5, max(fail.max(), good.max()) * 1.5
+        ax.axvspan(lo, m["tau"], color="#e5f5e0", lw=0)
+        ax.axvspan(m["tau"], hi, color="#fee0d2", lw=0)
+        ax.plot(fail, 1 + 0.12 * rng.uniform(-1, 1, len(fail)), "x", color="#d62728", ms=5, label="silent failures")
+        ax.plot(good, 0 + 0.12 * rng.uniform(-1, 1, len(good)), "o", mfc="none", mec="#1f77b4", ms=4, label="good answers")
+        ax.axvline(m["tau"], color="black", lw=1.2)
+        ax.text(m["tau"], 1.45, f"  $\\tau$: $k$-th smallest failure score, $k = {m['k']}$", fontsize=8, va="bottom")
+        ax.text(lo * 1.1, 0.5, f"accepted\n{m['n_fail_accepted']} of {m['n_fail']} failures", fontsize=8, va="center")
+        ax.text(hi / 1.1, 0.5, f"sent to fallback\n{m['n_good_flagged']} of {m['n_good']} good answers", fontsize=8,
+                va="center", ha="right")
+        ax.set_xscale("log")
+        ax.set_xlim(lo, hi)
+        ax.set_ylim(-0.5, 1.9)
+        ax.set_yticks([0, 1], ["good", "failure"])
+        ax.set_title(titles[name], fontsize=9.5, loc="left")
+    axes[-1].set_xlabel("analytical indicator $\\eta$ (logarithmic)")
+    fig.tight_layout()
+    save(fig, "threshold.pdf")
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     import sys
     sys.path.insert(0, str(ROOT))
     plt.rcParams.update(STYLE)
-    for draw in (silent_failure, roc_curves, calibration_cost, outside_tradeoff, query_cost, layered_speedup):
+    for draw in (silent_failure, roc_curves, benchmarks, threshold_figure, calibration_cost, outside_tradeoff, query_cost,
+                 layered_speedup):
         draw()
     if not math.isfinite(W_IN):
         raise ValueError("bad width")

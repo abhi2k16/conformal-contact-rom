@@ -16,6 +16,7 @@ Usage, from the project folder:
 Outputs: ``results/figure_silent_failure.npz`` and ``.json``, ``results/figure_roc.npz`` and ``.json``.
 """
 
+import argparse
 import json
 import logging
 import sys
@@ -138,10 +139,65 @@ def roc() -> None:
     (RESULTS / "figure_roc.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
 
 
+BENCH_PARAMS_AT = 0.5                    # benchmark figure: parameters at the centre of the training box
+THRESHOLD_CASES = (("membrane", 0, ("nmf", 24), 160, 0.10),   # threshold figure: good separation by eta
+                   ("block", 0, ("nmf", 12), 160, 0.10))      # and poor separation; replicate 0, first split
+
+
+def benchmarks() -> None:
+    """One full-order solution per benchmark at the centre of the training box (benchmark figure)."""
+    arrays, meta = {}, {}
+    for name in ("membrane", "block", "layered"):
+        problem = make_problem(name)
+        mu = problem.lo + BENCH_PARAMS_AT * (problem.hi - problem.lo)
+        sol = FullOrderSolver(problem).solve(mu)
+        if not sol.converged:
+            raise RuntimeError(f"{name}: full-order solve did not converge")
+        contact = problem.B.indices
+        xy_c = problem.xy[contact] if name == "membrane" else problem.xy_contact
+        arrays[f"{name}|xy_contact"], arrays[f"{name}|active"] = xy_c, sol.active_mask.astype(float)
+        arrays[f"{name}|normal_disp"] = problem.B @ sol.u
+        if name == "membrane":
+            arrays["membrane|xy"], arrays["membrane|u"] = problem.xy, sol.u
+        meta[name] = {"mu": mu.tolist(), "param_names": list(problem.param_names), "n_active": int(sol.active_mask.sum()),
+                      "n_contact": int(len(contact)), "d0": float(problem.d0), "kappa": float(problem.kappa),
+                      "depth": float(getattr(problem, "depth", 0.0)), "layered": bool(getattr(problem, "layered", False))}
+        log.info("benchmark %s: %d of %d candidate nodes in contact", name, meta[name]["n_active"], meta[name]["n_contact"])
+    np.savez_compressed(RESULTS / "figure_benchmarks.npz", **arrays)
+    (RESULTS / "figure_benchmarks.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
+
+
+def threshold() -> None:
+    """Calibration sets of the analytical indicator and their class-conditional thresholds (threshold figure)."""
+    from contactscreen.conformal import conformal_threshold
+
+    arrays, meta = {}, {}
+    for name, seed, key, n_cal, alpha in THRESHOLD_CASES:
+        audit = load_audit(audit_path(name, seed))
+        g = lambda f: audit.arrays[f"pool|{key[0]}|{key[1]}|{f}"]
+        lab = labels(g("eta"), g("err"), g("converged"))
+        cal = np.random.default_rng(SEEDS["split"]).permutation(len(lab.eta))[:n_cal]
+        fail, good = lab.eta[cal][lab.silent[cal]], lab.eta[cal][lab.good[cal]]
+        tau = conformal_threshold(fail, alpha)
+        arrays[f"{name}|fail"], arrays[f"{name}|good"] = fail, good
+        meta[name] = {"replicate": seed, "model": f"{key[0]}|{key[1]}", "n_cal": n_cal, "alpha": alpha,
+                      "n_fail": int(len(fail)), "n_good": int(len(good)), "k": int(np.floor(alpha * (len(fail) + 1))),
+                      "tau": float(tau), "n_fail_accepted": int((fail < tau).sum()),
+                      "n_good_flagged": int((good >= tau).sum()), "share_good_flagged": float((good >= tau).mean())}
+        log.info("threshold %s: %s", name, meta[name])
+    np.savez_compressed(RESULTS / "figure_threshold.npz", **arrays)
+    (RESULTS / "figure_threshold.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    silent_failure()
-    roc()
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--only", nargs="*", choices=("silent_failure", "roc", "benchmarks", "threshold"),
+                        help="compute only these figures' data (default: all)")
+    args = parser.parse_args()
+    for part in (silent_failure, roc, benchmarks, threshold):
+        if not args.only or part.__name__ in args.only:
+            part()
 
 
 if __name__ == "__main__":
