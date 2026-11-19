@@ -103,7 +103,7 @@ def substitute(tex: str, numbers: dict, labels: dict, bib: tuple) -> tuple:
             return f"{bib_authors[keys[0]]} [{nums}]"
         return f"[{nums}]"
 
-    tex = re.sub(r"\\([Cc]ite[pt]|cite)(\[[^\]]*\])?\{([^}]+)\}", cite, tex)
+    tex = re.sub(r"\\([Cc]ite(?:alt|alp|[pt])|cite)(\[[^\]]*\])?\{([^}]+)\}", cite, tex)
 
     def equation(m):                                    # numbered equations keep their number as a tag
         body = m.group(1)
