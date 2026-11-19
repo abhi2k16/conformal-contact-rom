@@ -1,0 +1,151 @@
+{
+ "problem": "membrane",
+ "n_replicates": 8,
+ "eps": 0.05,
+ "seeds": {
+  "split": 0,
+  "bootstrap": 1,
+  "enriched": 0,
+  "timing_queries": 10000,
+  "features_fit": 20000
+ },
+ "environment": {
+  "python": "3.10.18",
+  "platform": "Windows-10-10.0.26300-SP0",
+  "processor": "Intel64 Family 6 Model 158 Stepping 10, GenuineIntel",
+  "cpu_count": 12,
+  "numpy": "2.2.6",
+  "scipy": "1.15.3",
+  "fea_engine": "1.0.1",
+  "rom_engine": "0.2.0",
+  "blas": {
+   "name": "scipy-openblas",
+   "version": "0.3.29",
+   "configuration": "OpenBLAS 0.3.29  USE64BITINT DYNAMIC_ARCH NO_AFFINITY Haswell MAX_THREADS=24"
+  },
+  "threads": {
+   "OMP_NUM_THREADS": null,
+   "OPENBLAS_NUM_THREADS": null,
+   "MKL_NUM_THREADS": null
+  },
+  "sparse_direct_solver": "SuperLU (scipy.sparse.linalg.splu)"
+ },
+ "models": {
+  "nmf|12": {
+   "feasible": 0.0,
+   "computable": 0.0,
+   "effectivity_median": null,
+   "n_effectivity": 0,
+   "violations": 0,
+   "penetration_good_median": 0.021949319387237813,
+   "penetration_silent_median": 0.04210641302741541,
+   "screen": {
+    "miss": 0.0,
+    "miss_ci": [
+     0.0,
+     0.0
+    ],
+    "risk": 0.0,
+    "risk_ci": [
+     0.0,
+     0.0
+    ],
+    "fpr": 1.0,
+    "fpr_ci": [
+     1.0,
+     1.0
+    ],
+    "flagged": 1.0,
+    "defined": 1.0,
+    "n_silent_test": 6356
+   }
+  },
+  "nmf|24": {
+   "feasible": 0.0,
+   "computable": 0.0,
+   "effectivity_median": null,
+   "n_effectivity": 0,
+   "violations": 0,
+   "penetration_good_median": 0.01863301442609423,
+   "penetration_silent_median": 0.029315118678687854,
+   "screen": {
+    "miss": 0.0,
+    "miss_ci": [
+     0.0,
+     0.0
+    ],
+    "risk": 0.0,
+    "risk_ci": [
+     0.0,
+     0.0
+    ],
+    "fpr": 1.0,
+    "fpr_ci": [
+     1.0,
+     1.0
+    ],
+    "flagged": 1.0,
+    "defined": 1.0,
+    "n_silent_test": 3687
+   }
+  },
+  "nmf|36": {
+   "feasible": 0.0,
+   "computable": 0.0,
+   "effectivity_median": null,
+   "n_effectivity": 0,
+   "violations": 0,
+   "penetration_good_median": 0.014107389297866597,
+   "penetration_silent_median": 0.026802905867734893,
+   "screen": {
+    "miss": 0.0,
+    "miss_ci": [
+     0.0,
+     0.0
+    ],
+    "risk": 0.0,
+    "risk_ci": [
+     0.0,
+     0.0
+    ],
+    "fpr": 1.0,
+    "fpr_ci": [
+     1.0,
+     1.0
+    ],
+    "flagged": 1.0,
+    "defined": 1.0,
+    "n_silent_test": 1378
+   }
+  },
+  "nmf|48": {
+   "feasible": 0.0,
+   "computable": 0.0,
+   "effectivity_median": null,
+   "n_effectivity": 0,
+   "violations": 0,
+   "penetration_good_median": 0.00980211117878238,
+   "penetration_silent_median": 0.023390665430354327,
+   "screen": {
+    "miss": 0.0,
+    "miss_ci": [
+     0.0,
+     0.0
+    ],
+    "risk": 0.0,
+    "risk_ci": [
+     0.0,
+     0.0
+    ],
+    "fpr": 1.0,
+    "fpr_ci": [
+     1.0,
+     1.0
+    ],
+    "flagged": 1.0,
+    "defined": 1.0,
+    "n_silent_test": 532
+   }
+  }
+ }
+}

@@ -18,6 +18,7 @@ SKIP = {"environment", "seeds"}
 COUNT_FIELDS = ("n_orders_M", "n_silent", "missed", "n_eval", "n_time", "draws", "n_replicates", "n_pool", "n_splits", "n_boot",
                 "n_cal", "repeats", "replicate", "budget", "n_draws", "solves_with_fallback_route", "queries_needed")
 EPS_ALPHA = 1e-12
+S_TOL = 0.01                  # experiment S: change of the false-alarm rate counted as a difference
 
 
 def fmt_rate(x: float) -> str:
@@ -215,6 +216,41 @@ def summary_numbers() -> dict:
     out.update({"sum.L.cells": str(total), "sum.L.fprlower": str(fpr_lower), "sum.L.cp.defmore": str(cp_def_more),
                 "sum.L.oracle.defmore": str(oracle_def_more), "sum.L.oracle.defgain": f"{oracle_def_gain:.2f}"})
     out["sum.M.maxdev.0.05"], out["sum.M.maxdev.0.1"] = fmt_miss(dev[0.05]), fmt_miss(dev[0.1])
+    # S: residual-projection features against the base learned indicator, every cell (model, budget, alpha, variant)
+    lower, higher, cells, best_drop, worst_rise, s_miss = 0, 0, 0, 0.0, 0.0, 0.0
+    for name in PROBLEMS:
+        rp = load(f"resproj_{name}.json")
+        for k, c in rp["cells"].items():
+            model, r, budget, variant, rule = k.split("|")
+            if variant in ("eta", "base") or c["fpr"] is None:
+                continue
+            base = rp["cells"][f"{model}|{r}|{budget}|base|{rule}"]
+            if base["fpr"] is None:
+                continue
+            cells += 1
+            delta = c["fpr"] - base["fpr"]
+            lower += int(delta < -S_TOL)
+            higher += int(delta > S_TOL)
+            best_drop, worst_rise = min(best_drop, delta), max(worst_rise, delta)
+            if rule == "cc0.1" and c["miss"] is not None:
+                s_miss = max(s_miss, c["miss"])
+    out.update({"sum.S.tol": f"{S_TOL:g}", "sum.S.cells": str(cells), "sum.S.lower": str(lower), "sum.S.higher": str(higher),
+                "sum.S.bestdrop": f"{-best_drop:.3f}", "sum.S.worstrise": f"{worst_rise:.3f}", "sum.S.maxmiss.cc0.1": fmt_miss(s_miss)})
+    # T: deterministic residual bound
+    viol, comp_max = 0, {}
+    for name in PROBLEMS:
+        b = load(f"bound_{name}.json")["models"]
+        viol += sum(v["violations"] for v in b.values())
+        comp_max[name] = max(v["computable"] for v in b.values())
+        out[f"sum.T.{name}.computable.max"] = fmt_rate(comp_max[name])
+        out[f"sum.T.{name}.fallback.min"] = f"{min(v['screen']['flagged'] for v in b.values()):.3f}"
+        pg = [v["penetration_good_median"] for v in b.values()]
+        ps = [v["penetration_silent_median"] for v in b.values()]
+        out[f"sum.T.{name}.pengood.min"], out[f"sum.T.{name}.pengood.max"] = f"{100 * min(pg):.1f}", f"{100 * max(pg):.1f}"
+        out[f"sum.T.{name}.pensilent.min"], out[f"sum.T.{name}.pensilent.max"] = f"{100 * min(ps):.1f}", f"{100 * max(ps):.1f}"
+    out["sum.T.violations"] = str(viol)
+    eff = [v["effectivity_median"] for v in load("bound_layered.json")["models"].values() if v["effectivity_median"]]
+    out["sum.T.layered.effectivity"] = f"{min(eff):.1f}" if eff else "--"
     # C: out of range, no guard, every model of a benchmark
     for name in PROBLEMS:
         o = load(f"outside_{name}.json")

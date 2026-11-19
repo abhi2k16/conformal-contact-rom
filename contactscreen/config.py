@@ -47,6 +47,13 @@ def features_path(name: str, seed: int) -> Path:
     return FEATURE_DIR / f"{name}_seed{seed}.npz"
 
 
+RESIDUAL_DIR = RESULTS / "residuals"          # residual projections and deterministic bounds (experiments S, T)
+
+
+def residuals_path(name: str, seed: int) -> Path:
+    return RESIDUAL_DIR / f"{name}_seed{seed}.npz"
+
+
 def make_problem(name: str) -> ContactProblem:
     if name not in PROBLEMS:
         raise ValueError(f"unknown problem {name!r}; choose from {sorted(PROBLEMS)}")

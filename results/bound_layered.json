@@ -1,0 +1,151 @@
+{
+ "problem": "layered",
+ "n_replicates": 4,
+ "eps": 0.05,
+ "seeds": {
+  "split": 0,
+  "bootstrap": 1,
+  "enriched": 0,
+  "timing_queries": 10000,
+  "features_fit": 20000
+ },
+ "environment": {
+  "python": "3.10.18",
+  "platform": "Windows-10-10.0.26300-SP0",
+  "processor": "Intel64 Family 6 Model 158 Stepping 10, GenuineIntel",
+  "cpu_count": 12,
+  "numpy": "2.2.6",
+  "scipy": "1.15.3",
+  "fea_engine": "1.0.1",
+  "rom_engine": "0.2.0",
+  "blas": {
+   "name": "scipy-openblas",
+   "version": "0.3.29",
+   "configuration": "OpenBLAS 0.3.29  USE64BITINT DYNAMIC_ARCH NO_AFFINITY Haswell MAX_THREADS=24"
+  },
+  "threads": {
+   "OMP_NUM_THREADS": null,
+   "OPENBLAS_NUM_THREADS": null,
+   "MKL_NUM_THREADS": null
+  },
+  "sparse_direct_solver": "SuperLU (scipy.sparse.linalg.splu)"
+ },
+ "models": {
+  "nmf|8": {
+   "feasible": 0.010833333333333334,
+   "computable": 0.010833333333333334,
+   "effectivity_median": 5.603459194015391,
+   "n_effectivity": 13,
+   "violations": 0,
+   "penetration_good_median": 0.013934383291943414,
+   "penetration_silent_median": 0.02052596695148321,
+   "screen": {
+    "miss": 0.0,
+    "miss_ci": [
+     0.0,
+     0.0
+    ],
+    "risk": 0.0,
+    "risk_ci": [
+     0.0,
+     0.0
+    ],
+    "fpr": 0.9924357034795764,
+    "fpr_ci": [
+     0.9821162444113264,
+     1.0
+    ],
+    "flagged": 0.9958333333333333,
+    "defined": 1.0,
+    "n_silent_test": 539
+   }
+  },
+  "nmf|12": {
+   "feasible": 0.010833333333333334,
+   "computable": 0.010833333333333334,
+   "effectivity_median": 5.603459194015391,
+   "n_effectivity": 13,
+   "violations": 0,
+   "penetration_good_median": 0.011629682106373466,
+   "penetration_silent_median": 0.017437793962577566,
+   "screen": {
+    "miss": 0.0,
+    "miss_ci": [
+     0.0,
+     0.0
+    ],
+    "risk": 0.0,
+    "risk_ci": [
+     0.0,
+     0.0
+    ],
+    "fpr": 0.9945175438596491,
+    "fpr_ci": [
+     0.9873284054910243,
+     1.0
+    ],
+    "flagged": 0.9958333333333333,
+    "defined": 1.0,
+    "n_silent_test": 288
+   }
+  },
+  "nmf|16": {
+   "feasible": 0.010833333333333334,
+   "computable": 0.010833333333333334,
+   "effectivity_median": 5.603459194015391,
+   "n_effectivity": 13,
+   "violations": 0,
+   "penetration_good_median": 0.009958113459362872,
+   "penetration_silent_median": 0.015496556042930494,
+   "screen": {
+    "miss": 0.0,
+    "miss_ci": [
+     0.0,
+     0.0
+    ],
+    "risk": 0.0,
+    "risk_ci": [
+     0.0,
+     0.0
+    ],
+    "fpr": 0.9951171875,
+    "fpr_ci": [
+     0.9884615384615385,
+     1.0
+    ],
+    "flagged": 0.9958333333333333,
+    "defined": 1.0,
+    "n_silent_test": 176
+   }
+  },
+  "nmf|24": {
+   "feasible": 0.010833333333333334,
+   "computable": 0.010833333333333334,
+   "effectivity_median": 5.603459194015391,
+   "n_effectivity": 13,
+   "violations": 0,
+   "penetration_good_median": 0.007585253908092669,
+   "penetration_silent_median": 0.01384308287662217,
+   "screen": {
+    "miss": 0.0,
+    "miss_ci": [
+     0.0,
+     0.0
+    ],
+    "risk": 0.0,
+    "risk_ci": [
+     0.0,
+     0.0
+    ],
+    "fpr": 0.995507637017071,
+    "fpr_ci": [
+     0.9894551845342706,
+     1.0
+    ],
+    "flagged": 0.9958333333333333,
+    "defined": 1.0,
+    "n_silent_test": 87
+   }
+  }
+ }
+}
