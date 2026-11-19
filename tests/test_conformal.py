@@ -91,3 +91,15 @@ def test_effective_sample_size():
     assert effective_sample_size(np.array([1.0, 0.0, 0.0])) == 1.0
     assert effective_sample_size(np.array([])) == 0.0
     assert effective_sample_size(np.array([1.0, 2.0, 3.0])) < 3.0
+
+
+def test_cross_conformal_with_identical_fold_models_reproduces_the_split_rule():
+    from contactscreen.conformal import conformal_threshold, cross_conformal_flags
+    rng = np.random.default_rng(3)
+    fail, test = rng.normal(size=40), rng.normal(size=200)
+    folds = rng.integers(0, 5, size=40)
+    for alpha in (0.05, 0.10):
+        flags, defined = cross_conformal_flags(fail, folds, np.tile(test, (5, 1)), alpha)
+        assert defined and np.array_equal(flags, test >= conformal_threshold(fail, alpha))
+    flags, defined = cross_conformal_flags(fail[:5], folds[:5], np.tile(test, (5, 1)), 0.05)
+    assert not defined and flags.all()

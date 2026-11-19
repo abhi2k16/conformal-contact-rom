@@ -88,20 +88,21 @@ class FeatureScorer:
     cv_auc: float
 
     @classmethod
-    def fit(cls, X: np.ndarray, silent: np.ndarray, seed: int = 0) -> "FeatureScorer | None":
-        """``None`` if there are too few failures or good answers to fit (fewer than ``N_FOLDS`` of either)."""
+    def fit(cls, X: np.ndarray, silent: np.ndarray, seed: int = 0, ridges: tuple = RIDGES, n_folds: int = N_FOLDS,
+            degrees: tuple = (1, 2)) -> "FeatureScorer | None":
+        """``None`` if there are too few failures or good answers to fit (fewer than ``n_folds`` of either)."""
         y = silent.astype(float)
-        if min(y.sum(), len(y) - y.sum()) < N_FOLDS:
+        if min(y.sum(), len(y) - y.sum()) < n_folds:
             return None
         mean, scale = X.mean(axis=0), np.maximum(X.std(axis=0), 1e-12)
         Z = (X - mean) / scale
-        folds = np.random.default_rng(seed).permutation(len(y)) % N_FOLDS
+        folds = np.random.default_rng(seed).permutation(len(y)) % n_folds
         best = None
-        for degree in (1, 2):
+        for degree in degrees:
             E = _expand(Z, degree)
-            for ridge in RIDGES:
+            for ridge in ridges:
                 aucs = []
-                for k in range(N_FOLDS):
+                for k in range(n_folds):
                     tr, te = folds != k, folds == k
                     if y[te].sum() == 0 or y[te].sum() == te.sum():
                         continue

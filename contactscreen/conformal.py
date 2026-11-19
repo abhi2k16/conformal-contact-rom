@@ -14,6 +14,10 @@ Rules
         to the failure class); equal weights reproduce the rule above.
   * ``risk_threshold``       : conformal risk control for the marginal risk ``P(silent failure and miss) <= delta``,
         using every calibration query. Needs ``n >= 1 / delta - 1`` queries in total, not that many failures.
+  * ``cross_conformal_flags``: class-conditional rule for a score fitted by K-fold cross-fitting on the calibration
+        set itself (CV+ of Barber et al. 2021 applied to the failure class). Each calibration failure is scored by the
+        fold model that did not see it, and compared with the test query scored by that same model. Theory gives
+        ``P(miss | silent failure) <= 2 alpha`` (plus a small term); ``alpha`` is the typical behaviour, to be checked.
   * ``heuristic_threshold``  : ``margin * min`` of the calibration failure scores, flag if ``eta > tau``; no guarantee,
         undefined without a failure (then every query is flagged).
 """
@@ -130,3 +134,19 @@ def outcome(lab: QueryLabels, tau: float, strict_greater: bool = False) -> dict:
     return {"miss": int((lab.silent & ~fl).sum()), "silent": int(lab.silent.sum()),
             "false_alarm": int((lab.good & fl).sum()), "good": int(lab.good.sum()),
             "flagged": int(fl.sum()), "n": int(len(fl)), "tau_finite": bool(np.isfinite(tau))}
+
+
+def cross_conformal_flags(oof_fail_scores: np.ndarray, fail_folds: np.ndarray, test_scores: np.ndarray, alpha: float) -> tuple:
+    """Suspect flags of test queries under the cross-fitted class-conditional rule.
+
+    ``oof_fail_scores[i]``: out-of-fold score of calibration failure ``i`` (fold ``fail_folds[i]``); ``test_scores[k, j]``:
+    score of test query ``j`` by the model of fold ``k``. Query ``j`` is flagged if at least ``floor(alpha (m + 1))`` of
+    the ``m`` failures satisfy ``oof_i <= test_scores[fold_i, j]``; with one fold this is ``score >= conformal_threshold``.
+    Returns ``(flags, defined)``; undefined (too few failures) flags every query.
+    """
+    m, n_test = len(oof_fail_scores), test_scores.shape[1]
+    k = int(math.floor(alpha * (m + 1)))
+    if k < 1:
+        return np.ones(n_test, bool), False
+    count = (oof_fail_scores[:, None] <= test_scores[fail_folds]).sum(axis=0)
+    return count >= k, True
