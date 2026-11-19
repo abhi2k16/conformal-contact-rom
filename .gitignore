@@ -1,0 +1,29 @@
+# Track only: .py, .json, .npy, .npz, .pkl, plus documents and manuscript sources (.md, .tex, .bib, .txt, paper figures)
+# Ignore everything by default, then re-include the allowed types.
+*
+
+# Keep directories traversable so nested files can be matched
+
+# Allowed file types
+!*.py
+!*.json
+!*.npy
+!*.npz
+!*.pkl
+!.gitignore
+
+# Never track these, even though they match above
+__pycache__/
+.venv/
+venv/
+.env
+
+*.egg-info/
+
+# LaTeX build output
+*.aux
+*.log
+*.out
+*.toc
+*.blg
+*.synctex.gz

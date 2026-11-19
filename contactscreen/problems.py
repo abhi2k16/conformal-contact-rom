@@ -24,6 +24,14 @@ from fea_engine.material import Material, D_solid3d
 from fea_engine.mesh import MultiBlockMesh, box_mesh, rectangle_mesh
 
 
+# Out-of-range pools (sample_outside): load scaled by a factor in OUT_LOAD_FACTOR times the training maximum, or load
+# centre moved up to OUT_CENTRE_PAD beyond its range; for the layered block the stiffness ratio is also drawn from
+# OUT_RATIO_FACTOR times its training maximum.
+OUT_LOAD_FACTOR = (1.3, 2.0)
+OUT_CENTRE_PAD = 0.15
+OUT_RATIO_FACTOR = (1.2, 2.0)
+
+
 class ContactProblem:
     """Interface shared by the benchmarks."""
 
@@ -77,7 +85,7 @@ def sample_shell(rng, n, lo, hi, load_axis, load_factor, centre_axes, extra=None
     axes = list(centre_axes)
     for i in np.flatnonzero(mode == 1):
         while True:                                  # rejection: wider box, but outside the training box
-            cand = rng.uniform(lo[axes[0]] - 0.15, hi[axes[0]] + 0.15, size=len(axes))
+            cand = rng.uniform(lo[axes[0]] - OUT_CENTRE_PAD, hi[axes[0]] + OUT_CENTRE_PAD, size=len(axes))
             if np.any((cand < lo[axes]) | (cand > hi[axes])):
                 out[i, axes] = cand
                 break
@@ -98,6 +106,7 @@ class Membrane(ContactProblem):
     def __init__(self, n: int = 25, stride: int = 2, d0: float = 0.3, kappa: float = 1.5, sigma: float = 0.12,
                  load_range=(30.0, 200.0), centre_range=(0.35, 0.65)):
         self.name, self.k_varies, self.sigma = "membrane", False, sigma
+        self.n, self.stride, self.d0, self.kappa = n, stride, d0, kappa          # kept for reporting (paper/make_numbers.py)
         mesh = rectangle_mesh(1.0, 1.0, n, n)
         fes = FESystem(mesh, Quad4Laplace(), sparse=True)
         fes.assemble_stiffness(1.0)
@@ -131,7 +140,7 @@ class Membrane(ContactProblem):
         return self._offset
 
     def sample_outside(self, rng, n):
-        return sample_shell(rng, n, self.lo, self.hi, load_axis=0, load_factor=(1.3, 2.0), centre_axes=(1, 2))
+        return sample_shell(rng, n, self.lo, self.hi, load_axis=0, load_factor=OUT_LOAD_FACTOR, centre_axes=(1, 2))
 
 
 # --------------------------------------------------------------------------------------------- elastic block
@@ -148,6 +157,7 @@ class ElasticBlock(ContactProblem):
                  centre_range=(0.35, 0.65), ratio_range=(0.5, 2.0)):
         self.name = "block_layered" if layered else "block"
         self.k_varies, self.layered, self.d0, self.kappa = layered, layered, d0, kappa
+        self.n_xy, self.nz, self.depth, self.nu, self.sigma = n_xy, nz, depth, nu, sigma   # kept for reporting
         mesh = box_mesh(1.0, 1.0, depth, n_xy, n_xy, nz)
         D = D_solid3d(Material(E=1.0, nu=nu, rho=1.0))
         if layered:
@@ -205,6 +215,6 @@ class ElasticBlock(ContactProblem):
 
     def sample_outside(self, rng, n):
         p0 = self._p0
-        extra = (0, (self.hi[0] * 1.2, self.hi[0] * 2.0)) if self.layered else None
-        return sample_shell(rng, n, self.lo, self.hi, load_axis=p0, load_factor=(1.3, 2.0),
+        extra = (0, (self.hi[0] * OUT_RATIO_FACTOR[0], self.hi[0] * OUT_RATIO_FACTOR[1])) if self.layered else None
+        return sample_shell(rng, n, self.lo, self.hi, load_axis=p0, load_factor=OUT_LOAD_FACTOR,
                             centre_axes=(p0 + 1, p0 + 2), extra=extra)
