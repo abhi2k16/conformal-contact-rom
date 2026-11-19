@@ -3,6 +3,13 @@
 *
 
 # Keep directories traversable so nested files can be matched
+# (only these folders; their files are still filtered by the allowed types below)
+!/contactscreen/
+!/scripts/
+!/tests/
+!/results/
+!/results/audits/
+!/results/features/
 
 # Allowed file types
 !*.py
@@ -17,6 +24,7 @@ __pycache__/
 .venv/
 venv/
 .env
+paper/
 
 *.egg-info/
 
