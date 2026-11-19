@@ -1,7 +1,7 @@
 """Benchmark presets: problem constructors and audit settings, in one place.
 
 Settings were chosen so that the reduced models span a range of silent-failure rates (rare to frequent); see
-``research_plan_conformal_screening.md``, Section 5.
+``research_plan.md``, §6 and §14.
 """
 
 from pathlib import Path
