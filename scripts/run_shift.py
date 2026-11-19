@@ -2,7 +2,9 @@
 
 Per replicate and NMF model, ``N_SPLITS`` random calibration sets of ``T`` queries are drawn from the in-range audit pool
 (``generate_features.py``) and rules are applied to the shifted pools of ``generate_shift.py`` (shift sizes ``config.SHIFTS``,
-fractions of the box width beyond the box; 0 = fresh in-range queries). Indicators: ``eta`` and the cross-fitted learned
+fractions of the box width beyond the box; 0 = fresh in-range queries) and to the audit's far out-of-range pool (group
+``far``: loads 1.3 to 2 times the training maximum or load centres moved up to 0.15 outside their range, with the
+distance from the box computed per query). Indicators: ``eta`` and the cross-fitted learned
 indicator (``xconf``, folds and search as in ``run_crossfit.py``). Rules: class-conditional at the levels of ``ALPHAS``.
 Guards: ``none``; padded guards ``pad<g>``, which send every query farther than ``g`` box widths outside the box to the
 fallback solve (``pad0`` is the strict guard of the manuscript; ``g`` in ``PADS``). Reported per shift size, indicator,
@@ -23,11 +25,12 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from contactscreen.config import (FEATURE_DIR, N_SHIFT, PROBLEMS, RESULTS, SEEDS, SHIFTS, features_path,   # noqa: E402
-                                  shift_path)
+                                  make_problem, shift_path)
 from contactscreen.conformal import conformal_threshold, labels                    # noqa: E402
 from contactscreen.environment import environment_info                              # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from generate_shift import distance_outside                                         # noqa: E402
 from run_coverage import summarise                                                  # noqa: E402
 from run_crossfit import ALPHAS, BUDGETS, MODELS, counts, xconf_flags              # noqa: E402
 
@@ -36,12 +39,16 @@ N_SPLITS = 20
 PADS = (0.0, 0.05, 0.10)                         # guard padding in box widths
 
 
-def replicate_counts(feat, shift, key, budget: int, rng) -> dict:
+def replicate_counts(feat, shift, key, budget: int, rng, problem) -> dict:
     g = lambda f: feat[f"pool|{key[0]}|{key[1]}|{f}"]
     lab, X = labels(g("eta"), g("err"), g("converged")), g("X")
-    s_eta, s_err, s_conv, s_X = (shift[f"{key[0]}|{key[1]}|{f}"] for f in ("eta", "err", "converged", "X"))
+    far = lambda f: feat[f"out|{key[0]}|{key[1]}|{f}"]
+    arr = lambda f: np.concatenate([shift[f"{key[0]}|{key[1]}|{f}"], far(f)])     # shifted pools, then the far pool
+    s_eta, s_err, s_conv, s_X = arr("eta"), arr("err"), arr("converged"), np.vstack(
+        [shift[f"{key[0]}|{key[1]}|X"], far("X")])
     s_lab = labels(s_eta, s_err, s_conv)
-    dist = shift["shift"]
+    dist = np.concatenate([shift["shift"], distance_outside(problem, feat["out|mu"])])
+    group = np.concatenate([shift["shift"].astype(str), np.full(len(far("eta")), "far")])
     totals: dict = {}
     for _ in range(N_SPLITS):
         cal = rng.permutation(len(lab.eta))[:budget]
@@ -53,8 +60,8 @@ def replicate_counts(feat, shift, key, budget: int, rng) -> dict:
             for a, (fl, defined) in by_alpha.items():
                 for guard, pad in (("none", None),) + tuple((f"pad{g_}", g_) for g_ in PADS):
                     flagged = fl if pad is None else fl | (dist > pad + 1e-12)
-                    for s in SHIFTS:
-                        sel = np.isclose(dist, s)
+                    for s in [str(v) for v in SHIFTS] + ["far"]:
+                        sel = group == s
                         test = type(s_lab)(s_lab.eta[sel], s_lab.silent[sel], s_lab.good[sel], s_lab.converged[sel])
                         k = f"{variant}|{guard}|cc{a}|{s}"
                         totals[k] = totals.get(k, 0) + counts(test, flagged[sel], defined)
@@ -70,6 +77,7 @@ def main() -> None:
     keys = [("nmf", r[0]) for r in MODELS[args.problem]]
     budget = BUDGETS[args.problem][-1]
     rng, boot_rng = np.random.default_rng(SEEDS["split"]), np.random.default_rng(SEEDS["bootstrap"])
+    problem = make_problem(args.problem)
     per_cell: dict = {}
     used = 0
     for path in files:
@@ -79,7 +87,7 @@ def main() -> None:
             raise FileNotFoundError(f"{spath} missing; run scripts/generate_shift.py first")
         feat, shift = np.load(path), np.load(spath)
         for key in keys:
-            for k, row in replicate_counts(feat, shift, key, budget, rng).items():
+            for k, row in replicate_counts(feat, shift, key, budget, rng, problem).items():
                 per_cell.setdefault(f"{key[0]}|{key[1]}|{k}", []).append(row)
         used += 1
         log.info("replicate %d done", seed)
@@ -94,7 +102,7 @@ def main() -> None:
     for m in out["models"]:
         for variant in ("eta", "xconf"):
             for guard in ("none", "pad0.0", "pad0.05", "pad0.1"):
-                row = [out["cells"][f"{m}|{variant}|{guard}|cc0.1|{s}"] for s in SHIFTS]
+                row = [out["cells"][f"{m}|{variant}|{guard}|cc0.1|{s}"] for s in [str(v) for v in SHIFTS] + ["far"]]
                 print(f"{m:<7}{variant:<6}{guard:<8}" + " ".join(f"{f(c['miss'])}/{f(c['flagged'])}" for c in row))
 
 

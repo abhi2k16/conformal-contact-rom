@@ -68,6 +68,44 @@ def calibration_cost() -> None:
     save(fig, "calibration_cost.pdf")
 
 
+PAD_SHOWN = 0.05                                       # padded guard shown in the graded-shift figure
+GRADED_MODEL = {"membrane": "nmf|48", "block": "nmf|8", "layered": "nmf|8"}      # most informative model of each benchmark
+
+
+def graded_shift() -> None:
+    """Miss rate and fallback share against the shift size, cc(0.1): eta, cross-fitted indicator, 5 % padded guard."""
+    shifts = [0.0, 0.02, 0.05, 0.10, 0.15, 0.20]
+    fig, axes = plt.subplots(1, 2, figsize=(W_IN, 0.42 * W_IN))
+    for name, label, marker in PROBLEMS:
+        sh = load(f"shift_{name}.json")
+        model = GRADED_MODEL[name]
+        cell = lambda variant, guard, key, s: sh["cells"][f"{model}|{variant}|{guard}|cc0.1|{s}"][key]
+        x = [100 * s for s in shifts]
+        axes[0].plot(x, [cell("xconf", "none", "miss", s) for s in shifts], marker=marker, color=COLORS[name], ls="-",
+                     mfc="none", label=f"{label}, NMF {model.split('|')[1]}")
+        axes[0].plot(x, [cell("eta", "none", "miss", s) for s in shifts], marker=marker, color=COLORS[name], ls="--",
+                     mfc="none", alpha=0.6)
+        axes[1].plot(x, [cell("xconf", "none", "flagged", s) for s in shifts], marker=marker, color=COLORS[name], ls="-",
+                     mfc="none")
+        axes[1].plot(x, [cell("xconf", "pad0.05", "flagged", s) for s in shifts], color=COLORS[name], ls=":", lw=1.6)
+    axes[0].axhline(0.1, color="black", lw=0.8)
+    axes[0].text(20.4, 0.1, r" $\alpha$", va="center", fontsize=9)
+    axes[0].set_ylabel("miss rate")
+    axes[1].set_ylabel("fallback share")
+    for ax in axes:
+        ax.set_xlabel("shift outside the box (% of box width)")
+        ax.set_xticks([0, 5, 10, 15, 20])
+        ax.grid(True, lw=0.4, alpha=0.5)
+    handles, labels_ = axes[0].get_legend_handles_labels()
+    handles += [plt.Line2D([], [], color="0.3", ls="-"), plt.Line2D([], [], color="0.3", ls="--", alpha=0.6),
+                plt.Line2D([], [], color="0.3", ls=":", lw=1.6)]
+    labels_ += ["cross-fitted indicator", r"analytical indicator $\eta$ (left only)",
+                f"with {100 * PAD_SHOWN:.0f} % padded guard (right only)"]
+    fig.legend(handles, labels_, loc="lower center", ncol=3, frameon=False, fontsize=8)
+    fig.tight_layout(rect=[0, 0.17, 1, 1])
+    save(fig, "graded_shift.pdf")
+
+
 def outside_tradeoff() -> None:
     """Out of range: miss rate against fallback share as the parameter margin shrinks (most accurate model each)."""
     fig, axes = plt.subplots(1, 2, figsize=(W_IN, 0.42 * W_IN), sharey=True)
@@ -365,8 +403,8 @@ def main() -> None:
     import sys
     sys.path.insert(0, str(ROOT))
     plt.rcParams.update(STYLE)
-    for draw in (silent_failure, roc_curves, benchmarks, threshold_figure, calibration_cost, outside_tradeoff, query_cost,
-                 layered_speedup):
+    for draw in (silent_failure, roc_curves, benchmarks, threshold_figure, calibration_cost, outside_tradeoff, graded_shift,
+                 query_cost, layered_speedup):
         draw()
     if not math.isfinite(W_IN):
         raise ValueError("bad width")

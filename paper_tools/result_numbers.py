@@ -15,7 +15,7 @@ from pathlib import Path
 
 RESULTS = Path(__file__).resolve().parents[1] / "results"
 SKIP = {"environment", "seeds"}
-COUNT_FIELDS = ("n_active", "k", "n_fail", "n_good", "n_fail_accepted", "n_good_flagged", "active_fom", "n_contact", "penetrating_nodes", "pool_index", "n_silent_test_per_replicate",
+COUNT_FIELDS = ("n_per_shift", "n_active", "k", "n_fail", "n_good", "n_fail_accepted", "n_good_flagged", "active_fom", "n_contact", "penetrating_nodes", "pool_index", "n_silent_test_per_replicate",
                 "n_good_test_per_replicate", "n_orders_M", "n_silent", "missed", "n_eval", "n_time", "draws", "n_replicates", "n_pool", "n_splits", "n_boot",
                 "n_cal", "repeats", "replicate", "budget", "n_draws", "solves_with_fallback_route", "queries_needed")
 EPS_ALPHA = 1e-12
@@ -252,6 +252,55 @@ def summary_numbers() -> dict:
     out["sum.T.violations"] = str(viol)
     eff = [v["effectivity_median"] for v in load("bound_layered.json")["models"].values() if v["effectivity_median"]]
     out["sum.T.layered.effectivity"] = f"{min(eff):.1f}" if eff else "--"
+    # X: exactly valid all-folds rule against the cross-fitted rule (cells: model, budget, variant, level)
+    cells_x = undefined_more = fpr_better_eta = 0
+    max_miss = {"0.05": 0.0, "0.1": 0.0}
+    for name in PROBLEMS:
+        af = load(f"allfolds_{name}.json")
+        for k, c in af["cells"].items():
+            model, r, budget, variant, rule = k.split("|")
+            if variant != "allfolds":
+                continue
+            x = af["cells"][f"{model}|{r}|{budget}|xconf|{rule}"]
+            e = af["cells"][f"{model}|{r}|{budget}|eta|{rule}"]
+            cells_x += 1
+            undefined_more += int(c["defined"] < x["defined"] - 0.005)
+            fpr_better_eta += int(c["defined"] > 0.5 and c["fpr"] is not None and e["fpr"] is not None and c["fpr"] < e["fpr"])
+            if c["miss"] is not None:
+                max_miss[rule[2:]] = max(max_miss[rule[2:]], c["miss"])
+    out.update({"sum.X.cells": str(cells_x), "sum.X.defless": str(undefined_more), "sum.X.beatseta": str(fpr_better_eta),
+                "sum.X.maxmiss.0.05": fmt_miss(max_miss["0.05"]), "sum.X.maxmiss.0.1": fmt_miss(max_miss["0.1"])})
+    # Q: graded shifts (level 0.1): worst miss rate over the shifted pools, per benchmark, indicator and guard
+    for name in PROBLEMS:
+        sh = load(f"shift_{name}.json")
+        for variant in ("eta", "xconf"):
+            for guard in ("none", "pad0.05"):
+                for label, group in (("small", ("0.02", "0.05")), ("large", ("0.1", "0.15", "0.2")), ("far", ("far",))):
+                    vals = [sh["cells"][f"{m}|{variant}|{guard}|cc0.1|{g}"]["miss"] for m in sh["models"] for g in group
+                            if sh["cells"][f"{m}|{variant}|{guard}|cc0.1|{g}"]["miss"] is not None]
+                    out[f"sum.Q.{name}.{variant}.{guard}.{label}.maxmiss"] = fmt_miss(max(vals))
+                    out[f"sum.Q.{name}.{variant}.{guard}.{label}.minmiss"] = fmt_miss(min(vals))
+    # Q: shift sizes and padding as written in the text (percent of the box width), from the configuration
+    from contactscreen.config import SHIFTS
+    pad = 5                                                  # padded guard of the text and the figure, percent
+    pct = [round(100 * v) for v in SHIFTS]
+    small, large = [v for v in pct if 0 < v <= pad], [v for v in pct if v > pad]
+    join = lambda xs: ", ".join(map(str, xs[:-1])) + " and " + str(xs[-1])
+    out.update({"sum.Q.sizes": join(pct), "sum.Q.small": join(small), "sum.Q.large": f"{large[0]} to {large[-1]}",
+                "sum.Q.pad": str(pad), "sum.Q.first": str(small[0]), "sum.Q.largefrom": str(large[0]), "sum.Q.max": str(pct[-1])})
+    # Q: silent-failure rate by shift size for one model per benchmark (mean over replicates)
+    import numpy as np
+    graded = {"membrane": "nmf.48", "block": "nmf.8", "layered": "nmf.8"}
+    for name, model in graded.items():
+        rates = {0.0: [], 0.02: [], 0.2: []}
+        for path in sorted((RESULTS / "shift").glob(f"{name}_seed*.npz")):
+            d = np.load(path)
+            kind, r = model.split(".")
+            silent = (d[f"{kind}|{r}|converged"] > 0.5) & (d[f"{kind}|{r}|err"] > 0.05)
+            for sz in rates:
+                rates[sz].append(float(silent[np.isclose(d["shift"], sz)].mean()))
+        for sz, v in rates.items():
+            out[f"sum.Q.{name}.silent.{sz}"] = fmt_rate(float(np.mean(v)))
     # C: out of range, no guard, every model of a benchmark
     for name in PROBLEMS:
         o = load(f"outside_{name}.json")
