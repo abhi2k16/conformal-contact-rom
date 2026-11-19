@@ -67,9 +67,15 @@ def silent_failure() -> None:
     c_on_row = c_on_row[np.argsort(problem.xy[contact[c_on_row], 0])]
     c = problem.offset(mu)
     gap_rom = problem.B @ red.u - c
+    gap_fom = problem.B @ ref.u - c
+    n_nodes = len(problem.mesh.nodes)
+    err_full = np.zeros(n_nodes)                      # pointwise |u_rom - u_fom| on the whole mesh (zero on the fixed boundary)
+    err_full[problem.free] = np.abs(red.u - ref.u)
     np.savez_compressed(RESULTS / "figure_silent_failure.npz", x=problem.xy[on_row, 0], u_fom=ref.u[on_row],
                         u_rom=red.u[on_row], xc=problem.xy[contact[c_on_row], 0], floor=c[c_on_row],
-                        lam_fom=ref.lam[c_on_row], lam_rom=red.lam[c_on_row])
+                        lam_fom=ref.lam[c_on_row], lam_rom=red.lam[c_on_row],
+                        gap_fom=gap_fom[c_on_row], gap_rom=gap_rom[c_on_row], err_full=err_full,
+                        contact_xy=problem.xy[contact], contact_pen=(gap_rom < 0), contact_active=(ref.lam > 0), y_row=y_row)
     meta = {"problem": name, "replicate": seed, "model": f"{key[0]}|{key[1]}", "pool_index": i, "mu": mu.tolist(),
             "y_row": float(y_row), "energy_error": float(energy_error(ref.K, ref.u, red.u)), "eta": float(eta),
             "penetration_max": float(max(0.0, -gap_rom.min())), "penetration_max_rel": float(max(0.0, -gap_rom.min()) / np.abs(c).max()),

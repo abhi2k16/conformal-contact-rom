@@ -197,31 +197,98 @@ def layered_speedup() -> None:
     save(fig, "layered_speedup.pdf")
 
 
-def silent_failure() -> None:
-    """One silent failure (membrane, NMF 24): displacement and multipliers along a row of candidate contact nodes."""
+def _render_error_map(d):
+    """Top view of the membrane mesh coloured by the pointwise displacement error |u_rom - u_fom| (fea_engine helpers).
+
+    Candidate contact nodes: red spheres where the lifted displacement penetrates the obstacle, black where the full-order
+    solution is in contact, small grey otherwise; the row of the profile panels is the dashed line. Returns (image, clim)."""
     import numpy as np
+    import pyvista as pv
+
+    from contactscreen.config import make_problem
+    from fea_engine.visualization import to_pyvista
+
+    problem = make_problem("membrane")
+    grid = to_pyvista(problem.mesh)
+    err = d["err_full"]
+    grid.points[:, 2] = 0.0
+    grid.point_data["err"] = err
+    clim = (0.0, float(err.max()))
+    pl = pv.Plotter(off_screen=True, window_size=[900, 900])
+    pl.set_background("white")
+    pl.add_mesh(grid, scalars="err", cmap="magma_r", clim=clim, show_edges=True, edge_color="#c0c0c0", line_width=0.3,
+                show_scalar_bar=False, lighting=False)
+    xy, pen, act = d["contact_xy"], d["contact_pen"], d["contact_active"]
+    pts = np.column_stack([xy, np.full(len(xy), 0.02)])
+    rest = ~(pen | act)
+    pl.add_mesh(pv.PolyData(pts[rest]), color="#808080", render_points_as_spheres=True, point_size=5)
+    pl.add_mesh(pv.PolyData(pts[act & ~pen]), color="black", render_points_as_spheres=True, point_size=11)
+    pl.add_mesh(pv.PolyData(pts[pen]), color="#d62728", render_points_as_spheres=True, point_size=16)
+    y = float(d["y_row"])
+    pl.add_mesh(pv.Line((0, y, 0.03), (1, y, 0.03)), color="#1f77b4", line_width=3)
+    pl.camera_position = "xy"
+    pl.enable_parallel_projection()
+    img = _crop_white(pl.screenshot(return_img=True))
+    pl.close()
+    return img, clim
+
+
+def silent_failure() -> None:
+    """One silent failure (membrane, NMF 24): profiles along a row of candidate contact nodes and the 2-D error map."""
+    import numpy as np
+    from matplotlib import cm, colors
 
     d = np.load(RESULTS / "figure_silent_failure.npz")
-    fig, (top, bottom) = plt.subplots(2, 1, figsize=(W_IN, 0.62 * W_IN), sharex=True,
-                                      gridspec_kw={"height_ratios": [1.6, 1.0]})
-    top.plot(d["x"], d["u_fom"], color="black", lw=2.6, alpha=0.45, label="full-order $u$")
-    top.plot(d["x"], d["u_rom"], color="#1f77b4", lw=1.3, ls="--", label="reduced, lifted $\\tilde{u}$")
-    top.plot(d["xc"], d["floor"], ls="none", marker="_", ms=9, mew=2, color="0.35", label="obstacle at contact nodes")
-    xr = np.interp(d["xc"], d["x"], d["u_rom"])
-    below = xr < d["floor"]
-    top.plot(d["xc"][below], xr[below], ls="none", marker="o", mfc="none", mec="#d62728", ms=7, mew=1.4,
+    blue, red = "#1f77b4", "#d62728"
+    fig = plt.figure(figsize=(W_IN, 0.66 * W_IN))
+    gs = fig.add_gridspec(3, 2, width_ratios=[1.55, 1.0], height_ratios=[1.3, 1.0, 1.0], hspace=0.42, wspace=0.3)
+    ax1, ax2, ax3 = fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[2, 0])
+    for a in (ax1, ax2):
+        a.tick_params(labelbottom=False)
+    # (a) displacement at the candidate contact nodes against the obstacle
+    ax1.plot(d["x"], d["u_fom"], color="black", lw=2.4, alpha=0.4, label="full-order $u$")
+    ax1.plot(d["x"], d["u_rom"], color=blue, lw=1.2, ls="--", label="reduced, lifted $\\tilde{u}$")
+    ax1.plot(d["xc"], d["floor"], ls="none", marker="_", ms=9, mew=2, color="0.35", label="obstacle")
+    ax1.set_ylabel("displacement")
+    # (b) gap: full-order and lifted; negative lifted gap is penetration
+    ax2.axhline(0.0, color="0.3", lw=0.8)
+    ax2.fill_between(d["xc"], np.minimum(d["gap_rom"], 0.0), 0.0, color=red, alpha=0.25, lw=0)
+    ax2.plot(d["xc"], d["gap_fom"], ls="none", marker="o", mfc="none", mec="black", ms=5.5, label="full-order $g$")
+    ax2.plot(d["xc"], d["gap_rom"], ls="none", marker="x", color=blue, ms=5.5, label="reduced, lifted $\\tilde{g}$")
+    pen = d["gap_rom"] < 0
+    ax2.plot(d["xc"][pen], d["gap_rom"][pen], ls="none", marker="o", mfc="none", mec=red, ms=8, mew=1.3,
              label="penetration ($\\tilde{g} < 0$)")
-    top.set_ylabel("displacement")
-    top.grid(True, lw=0.4, alpha=0.5)
-    bottom.plot(d["xc"], d["lam_fom"], ls="none", marker="o", mfc="none", mec="black", ms=6, label="full-order $\\lambda$")
-    bottom.plot(d["xc"], d["lam_rom"], ls="none", marker="x", color="#1f77b4", ms=6, label="reduced, lifted $\\tilde{\\lambda}$")
-    bottom.set_xlabel("$x$ along the row of candidate contact nodes")
-    bottom.set_ylabel("contact multiplier")
-    bottom.grid(True, lw=0.4, alpha=0.5)
-    handles = top.get_legend_handles_labels()[0] + bottom.get_legend_handles_labels()[0]
-    labels_ = top.get_legend_handles_labels()[1] + bottom.get_legend_handles_labels()[1]
-    fig.legend(handles, labels_, loc="lower center", ncol=3, frameon=False)
-    fig.tight_layout(rect=[0, 0.13, 1, 1])
+    ax2.set_yscale("symlog", linthresh=0.01)
+    ax2.set_yticks([-0.01, 0, 0.01, 0.1, 0.5])
+    ax2.set_yticklabels(["-0.01", "0", "0.01", "0.1", "0.5"])
+    ax2.set_ylabel("gap (symlog)")
+    # (c) multipliers
+    ax3.plot(d["xc"], d["lam_fom"], ls="none", marker="o", mfc="none", mec="black", ms=5.5, label="full-order $\\lambda$")
+    ax3.plot(d["xc"], d["lam_rom"], ls="none", marker="x", color=blue, ms=5.5, label="reduced, lifted $\\tilde{\\lambda}$")
+    ax3.set_ylabel("multiplier")
+    ax3.set_xlabel("$x$ along the row of candidate contact nodes")
+    for a, tag in ((ax1, "(a)"), (ax2, "(b)"), (ax3, "(c)")):
+        a.grid(True, lw=0.4, alpha=0.5)
+        a.text(0.0, 1.03, tag, transform=a.transAxes, va="bottom", ha="left", fontsize=9, fontweight="bold")
+    # (d) pointwise error over the membrane, rendered with fea_engine / PyVista
+    axm = fig.add_subplot(gs[:, 1])
+    img, clim = _render_error_map(d)
+    axm.imshow(img)
+    axm.set_axis_off()
+    axm.set_title("(d) displacement error $|\\tilde{u} - u|$", fontsize=9)
+    sm = cm.ScalarMappable(norm=colors.Normalize(*clim), cmap="magma_r")
+    cb = fig.colorbar(sm, ax=axm, orientation="horizontal", fraction=0.05, pad=0.03, aspect=18)
+    cb.ax.tick_params(labelsize=8)
+    from matplotlib.lines import Line2D
+    handles = [Line2D([], [], color="black", lw=2.4, alpha=0.4), Line2D([], [], ls="none", marker="o", mfc="none", mec="black", ms=6),
+               Line2D([], [], color=blue, lw=1.2, ls="--"), Line2D([], [], ls="none", marker="x", color=blue, ms=6),
+               Line2D([], [], ls="none", marker="_", mew=2, color="0.35", ms=9),
+               Line2D([], [], ls="none", marker="o", mfc="none", mec=red, mew=1.3, ms=8), Line2D([], [], ls="none", marker="o", color=red, ms=6),
+               Line2D([], [], ls="none", marker="o", color="black", ms=5), Line2D([], [], color=blue, lw=2.5)]
+    labels_ = ["full-order (line)", "full-order (nodes)", "reduced, lifted (line)", "reduced, lifted (nodes)", "obstacle",
+               "penetration in (b)", "penetrating node in (d)", "full-order contact in (d)", "profile row in (d)"]
+    fig.legend(handles, labels_, loc="lower center", ncol=3, frameon=False, fontsize=8, columnspacing=1.5)
+    fig.subplots_adjust(left=0.13, right=0.98, top=0.94, bottom=0.27)
     save(fig, "silent_failure.pdf")
 
 
