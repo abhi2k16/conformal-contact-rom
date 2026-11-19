@@ -150,6 +150,9 @@ def summary_numbers() -> dict:
         misses = [c["miss"] for p in PROBLEMS for k, c in load(f"crossfit_{p}.json")["cells"].items()
                   if f"|xconf|cc{alpha}" in k and c["miss"] is not None]
         out[f"sum.K.xconf.cc{alpha}.maxmiss"] = fmt_miss(max(misses))
+        out[f"sum.K.xconf.cc{alpha}.ciabove"] = str(sum(1 for pp in PROBLEMS for k, c in load(f"crossfit_{pp}.json")["cells"].items()
+                                                         if f"|xconf|cc{alpha}" in k and c["miss_ci"] and c["miss_ci"][1] > float(alpha)))
+        out[f"sum.K.xconf.cc{alpha}.cells"] = str(len(misses))
     # B: calibration size for the most accurate model of each benchmark
     for name in PROBLEMS:
         rates = load(f"coverage_{name}.json")["rates"]
