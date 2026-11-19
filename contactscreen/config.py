@@ -19,6 +19,7 @@ SEEDS = {
     "bootstrap": 1,         # bootstrap over replicates
     "enriched": 0,          # calibration draws of run_enriched
     "timing_queries": 10_000,   # run_fallback draws its fresh queries with seed timing_queries + replicate seed
+    "shift": 30_000,            # generate_shift draws the graded-shift queries with seed shift + replicate seed
     "features_fit": 20_000,     # generate_features draws the score-fitting queries with seed features_fit + replicate seed
 }
 
@@ -52,6 +53,16 @@ RESIDUAL_DIR = RESULTS / "residuals"          # residual projections and determi
 
 def residuals_path(name: str, seed: int) -> Path:
     return RESIDUAL_DIR / f"{name}_seed{seed}.npz"
+
+
+# Graded shifts (experiment Q): distance outside the training box in units of the box width, and queries per shift size.
+SHIFTS = (0.0, 0.02, 0.05, 0.10, 0.15, 0.20)
+N_SHIFT = {"membrane": 200, "block": 150, "layered": 100}
+SHIFT_DIR = RESULTS / "shift"
+
+
+def shift_path(name: str, seed: int) -> Path:
+    return SHIFT_DIR / f"{name}_seed{seed}.npz"
 
 
 def make_problem(name: str) -> ContactProblem:
