@@ -10,6 +10,7 @@
 !/results/
 !/results/audits/
 !/results/features/
+!/paper_tools/
 
 # Allowed file types
 !*.py

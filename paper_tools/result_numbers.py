@@ -1,0 +1,227 @@
+"""Result numbers for the manuscript: every value of ``results/*.json`` as a key, plus derived summaries.
+
+Flattening: the file stem (``_`` -> ``.``) and the JSON path give the key; ``|`` in experiment cell names becomes ``.``,
+the segment ``cells`` is dropped, and the two ends of an interval list become ``.0`` and ``.1``. Example:
+``crossfit_block.json`` -> ``cells`` -> ``nmf|8|240|xconf|cc0.1`` -> ``fpr`` gives ``crossfit.block.nmf.8.240.xconf.cc0.1.fpr``.
+The format follows the field name (speedups one decimal, times in ms, counts as integers, rates two or three decimals),
+so the text never rounds by hand. Derived summaries (maxima and ranges over models) are named ``sum.*``.
+Used by ``make_numbers.py``.
+"""
+
+import json
+import math
+import re
+from pathlib import Path
+
+RESULTS = Path(__file__).resolve().parents[1] / "results"
+SKIP = {"environment", "seeds"}
+COUNT_FIELDS = ("n_orders_M", "n_silent", "missed", "n_eval", "n_time", "draws", "n_replicates", "n_pool", "n_splits", "n_boot",
+                "n_cal", "repeats", "replicate", "budget", "n_draws", "solves_with_fallback_route", "queries_needed")
+EPS_ALPHA = 1e-12
+
+
+def fmt_rate(x: float) -> str:
+    return f"{x:.3f}" if abs(x) < 0.1 else f"{x:.2f}"
+
+
+def fmt_ms(x: float) -> str:
+    return f"{x:.0f}" if x >= 100 else (f"{x:.1f}" if x >= 1 else f"{x:.2f}")
+
+
+def fmt_sci(x: float) -> str:
+    if x == 0:
+        return "0"
+    e = math.floor(math.log10(abs(x)))
+    return f"{x / 10 ** e:.0f}\\times 10^{{{e}}}"
+
+
+def fmt_miss(x: float) -> str:
+    """Miss rates and risks are compared with alpha and delta, so always three decimals."""
+    return f"{x:.3f}"
+
+
+def fmt_value(path: str, x: float) -> str:
+    name = re.split(r"\.(?=[A-Za-z_])", path)[-1]          # field name; segments such as "@0.05" contain dots
+    if "miss" in path.lower() and "missed" not in name or name in ("risk", "risk_ci") or ".risk_ci." in path:
+        return fmt_miss(x)
+    if ".M_sizes." in path and name in ("mean", "p90"):                     # calibration sizes of experiment M
+        return f"{round(x):,}".replace(",", "\\,")
+    if name in COUNT_FIELDS or name.startswith("queries_needed"):          # match the field name, not a substring
+        return f"{x:g}" if x != round(x) else f"{int(round(x)):,}".replace(",", "\\,")
+    if name in ("budgets", "lams", "margins", "fit_sizes", "fit_shares", "budget"):     # design values: as written in the scripts
+        return f"{x:g}"
+    if name == "defined":
+        return f"{x:.2f}"
+    if "speedup" in name or "break_even" in name:
+        return f"{x:.1f}"
+    if name.endswith("_ms") or "_ms_" in name or name == "setup_ms":
+        return fmt_ms(x)
+    if name.startswith("it_") or "iterations" in name:
+        return f"{x:g}"
+    if name.startswith("max_du") or name.startswith("max_rel"):
+        return fmt_sci(x)
+    if name in ("rel", "chosen_rel"):
+        return f"{x:g}"
+    if "failures_in_calibration" in name or "ess_" in name:
+        return f"{x:.1f}"
+    return fmt_rate(x)
+
+
+def flatten(obj, prefix: str, out: dict) -> None:
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k in SKIP:
+                continue
+            seg = str(k).replace("|", ".")
+            flatten(v, prefix if k == "cells" else f"{prefix}.{seg}", out)
+    elif isinstance(obj, list):
+        if all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in obj):
+            for i, v in enumerate(obj):
+                out[f"{prefix}.{i}"] = fmt_value(prefix, float(v))
+        elif all(isinstance(v, dict) for v in obj):          # records, e.g. warm-start rows per seed threshold
+            for i, v in enumerate(obj):
+                flatten(v, f"{prefix}.{i}", out)
+    elif isinstance(obj, bool) or obj is None or isinstance(obj, str):
+        return
+    elif isinstance(obj, (int, float)):
+        out[prefix] = fmt_value(prefix, float(obj))
+
+
+def load(name: str) -> dict:
+    return json.loads((RESULTS / name).read_text(encoding="utf-8"))
+
+
+def flat_numbers() -> dict:
+    out: dict = {}
+    for path in sorted(RESULTS.glob("*.json")):
+        flatten(json.loads(path.read_text(encoding="utf-8")), path.stem.replace("_", "."), out)
+    return out
+
+
+# --------------------------------------------------------------------------------------------------- summaries
+
+PROBLEMS = ("membrane", "block", "layered")
+NCAL_A = {"membrane": 160, "block": 160, "layered": 80}          # calibration size quoted for experiment A
+
+
+def nmf_models(cov: dict) -> list:
+    return [k for k in cov["rates"] if k.startswith("nmf")]
+
+
+def summary_numbers() -> dict:
+    out = {}
+    # A: rules at the quoted calibration size
+    risks = {"crc0.01": [], "crc0.02": []}
+    worst_heur = (-1.0, None, None)
+    for name in PROBLEMS:
+        cov, n = load(f"coverage_{name}.json"), NCAL_A[name]
+        out[f"sum.A.{name}.ncal"] = str(n)
+        fprs = []
+        for m in nmf_models(cov):
+            cell = lambda rule: cov["cells"][f"{m}|{n}|{rule}"]
+            if cell("cc0.1")["fpr"] is not None:
+                fprs.append(cell("cc0.1")["fpr"])
+            for rule in risks:
+                if cell(rule)["defined"] > 0:
+                    risks[rule].append(cell(rule)["risk"])
+            h = cell("heur")
+            if h["miss"] is not None and h["miss"] > worst_heur[0]:
+                worst_heur = (h["miss"], f"{name}.{m}", h["miss_ci"])
+        out[f"sum.A.{name}.cc0.1.fpr.min"], out[f"sum.A.{name}.cc0.1.fpr.max"] = fmt_rate(min(fprs)), fmt_rate(max(fprs))
+    for rule, vals in risks.items():
+        out[f"sum.A.{rule}.risk.min"], out[f"sum.A.{rule}.risk.max"] = fmt_miss(min(vals)), fmt_miss(max(vals))
+    out["sum.A.heur.maxmiss"] = fmt_miss(worst_heur[0])
+    out["sum.A.heur.maxmiss.lo"], out["sum.A.heur.maxmiss.hi"] = fmt_miss(worst_heur[2][0]), fmt_miss(worst_heur[2][1])
+    for alpha in ("0.05", "0.1"):
+        worst = max(load(f"coverage_{p}.json")["cells"][f"{m}|{NCAL_A[p]}|cc{alpha}"]["miss"] or 0.0
+                    for p in PROBLEMS for m in load(f"coverage_{p}.json")["rates"])
+        out[f"sum.A.cc{alpha}.maxmiss"] = fmt_miss(worst)
+    above = 0
+    for p in PROBLEMS:
+        for k, c in load(f"coverage_{p}.json")["cells"].items():
+            rule = k.split("|")[3]
+            if rule.startswith("cc") and c["miss_ci"] and c["miss_ci"][0] > float(rule[2:]) + EPS_ALPHA:
+                above += 1
+    out["sum.A.cc.ciabovealpha"] = str(above)          # cells (all models, sizes) whose interval lies above alpha
+    # K: cross-fitted rule, all cells
+    for alpha in ("0.05", "0.1"):
+        misses = [c["miss"] for p in PROBLEMS for k, c in load(f"crossfit_{p}.json")["cells"].items()
+                  if f"|xconf|cc{alpha}" in k and c["miss"] is not None]
+        out[f"sum.K.xconf.cc{alpha}.maxmiss"] = fmt_miss(max(misses))
+    # B: calibration size for the most accurate model of each benchmark
+    for name in PROBLEMS:
+        rates = load(f"coverage_{name}.json")["rates"]
+        best = min(nmf_models({"rates": rates}), key=lambda m: rates[m]["p"])
+        out[f"sum.B.{name}.best"] = best.split("|")[1]
+    # G: AUC of indicator v1 and v2 per benchmark (ranges over NMF models)
+    for name in PROBLEMS:
+        for tag, f in (("v1", f"coverage_{name}.json"), ("v2", f"coverage_{name}_eta2.json")):
+            aucs = [r["auc"] for k, r in load(f)["rates"].items() if k.startswith("nmf") and r["auc"] is not None]
+            out[f"sum.G.{name}.{tag}.auc.min"], out[f"sum.G.{name}.{tag}.auc.max"] = fmt_rate(min(aucs)), fmt_rate(max(aucs))
+    # J: speedups on layered, ranges over models
+    sp = load("learned_speedup_layered.json")["models"]
+    for variant in ("eta@160", "xconf@160"):
+        for kind in ("speedup_cold", "speedup_warm"):
+            vals = [v["cells"][f"{variant}|cc0.1"][kind] for v in sp.values()]
+            out[f"sum.J.{variant.split('@')[0]}.cc0.1.{kind}.min"] = f"{min(vals):.1f}"
+            out[f"sum.J.{variant.split('@')[0]}.cc0.1.{kind}.max"] = f"{max(vals):.1f}"
+    flag_all = [v["cells"]["eta@160|flag_all"]["speedup_warm"] for v in sp.values()]
+    out["sum.J.flagall.warm.min"], out["sum.J.flagall.warm.max"] = f"{min(flag_all):.1f}", f"{max(flag_all):.1f}"
+    oracle = [v["oracle"]["speedup_cold"] for v in sp.values()]
+    out["sum.J.oracle.cold.min"], out["sum.J.oracle.cold.max"] = f"{min(oracle):.1f}", f"{max(oracle):.1f}"
+    xmiss = [v["cells"]["xconf@160|cc0.1"]["miss_rate"] for v in sp.values()]
+    out["sum.J.xconf.cc0.1.miss.max"] = fmt_miss(max(xmiss))
+    # H: condensed solver against the suite solver
+    for name in ("membrane", "block"):
+        h = load(f"condensed_{name}.json")["H"]
+        valid = [r for m in h["models"].values() for rule, r in m["rules"].items() if rule in ("cc0.05", "cc0.1")]
+        out[f"sum.H.{name}.valid.cold.max"] = f"{max(r['speedup_cold'] for r in valid):.2f}"
+        out[f"sum.H.{name}.valid.warm.max"] = f"{max(r['speedup_warm'] for r in valid):.2f}"
+        out[f"sum.H.{name}.oracle.cold.max"] = f"{max(m['rules']['oracle']['speedup_cold'] for m in h['models'].values()):.2f}"
+        out[f"sum.H.{name}.valid.cold.min"] = f"{min(r['speedup_cold'] for r in valid):.2f}"
+    # J: one-time cost of the calibration solves (budget x mean cold full-order time)
+    j = load("learned_speedup_layered.json")
+    t_cold = sum(v["t_cold_ms_mean"] for v in sp.values()) / len(sp)
+    out["sum.J.calib.seconds"] = f"{j['budget'] * t_cold / 1000:.0f}"
+    # L: cells (variant, eps', alpha, model, benchmark) in which lower-threshold calibration beat the standard rule,
+    # i.e. was defined more often or had a lower false-alarm rate by more than TOL; M: largest |miss - alpha| where defined
+    tol, total, dev = 0.005, 0, {0.05: 0.0, 0.1: 0.0}
+    fpr_lower, cp_def_more, oracle_def_more, oracle_def_gain = 0, 0, 0, 0.0
+    for name in PROBLEMS:
+        ff = load(f"fewfailures_{name}.json")
+        for k, c in ff["L"].items():
+            kind, r, variant, alpha, eps_low = k.split("|")
+            if variant == "standard":
+                continue
+            std = ff["L"][f"{kind}|{r}|standard|{alpha}|{ff['eps']}"]
+            total += 1
+            fpr_lower += int(c["fpr"] is not None and std["fpr"] is not None and c["fpr"] < std["fpr"] - tol)
+            if c["defined"] > std["defined"] + tol:
+                if variant == "cp":
+                    cp_def_more += 1
+                else:
+                    oracle_def_more += 1
+                    oracle_def_gain = max(oracle_def_gain, c["defined"] - std["defined"])
+        for k, c in ff["M"].items():
+            alpha = float(k.split("|")[3])
+            if c["defined"] == 1.0 and c["miss"] is not None:
+                dev[alpha] = max(dev[alpha], abs(c["miss"] - alpha))
+    out.update({"sum.L.cells": str(total), "sum.L.fprlower": str(fpr_lower), "sum.L.cp.defmore": str(cp_def_more),
+                "sum.L.oracle.defmore": str(oracle_def_more), "sum.L.oracle.defgain": f"{oracle_def_gain:.2f}"})
+    out["sum.M.maxdev.0.05"], out["sum.M.maxdev.0.1"] = fmt_miss(dev[0.05]), fmt_miss(dev[0.1])
+    # C: out of range, no guard, every model of a benchmark
+    for name in PROBLEMS:
+        o = load(f"outside_{name}.json")
+        for rule in ("cc0.05", "cc0.1"):
+            cells = [c for k, c in o["cells"].items() if k.endswith(f"|{rule}|none") and c["miss"] is not None]
+            out[f"sum.C.{name}.{rule}.maxmiss"] = fmt_miss(max(c["miss"] for c in cells))
+            out[f"sum.C.{name}.{rule}.flagged.min"] = fmt_rate(min(c["flagged"] for c in cells))
+    return out
+
+
+def all_numbers() -> dict:
+    flat, summ = flat_numbers(), summary_numbers()
+    clash = set(flat) & set(summ)
+    if clash:
+        raise ValueError(f"summary keys clash with flattened keys: {sorted(clash)[:5]}")
+    return {**flat, **summ}
