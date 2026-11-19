@@ -40,6 +40,7 @@ def load(name: str) -> dict:
 def save(fig, name: str) -> None:
     FIGURES.mkdir(exist_ok=True)
     fig.savefig(FIGURES / name)
+    fig.savefig((FIGURES / name).with_suffix(".png"), dpi=220)          # for the Markdown export and quick viewing
     plt.close(fig)
     log.info("wrote %s", FIGURES / name)
 
