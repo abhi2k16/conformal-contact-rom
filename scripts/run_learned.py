@@ -6,7 +6,7 @@ calibrated on random ``n_cal``-query subsets of the pool exactly as in ``run_cov
 every variant, so differences are not split noise). Every variant spends the same budget ``T`` of full-order solves:
   * ``eta@T``            the standard indicator, all ``T`` queries used for calibration,
   * ``learned@T:F``      the learned score, ``F`` queries used to fit it and ``T - F`` to calibrate (``F`` = T/4, T/2).
-Reported: AUC, and for ``cc`` (alpha 0.05, 0.10) and ``crc`` (delta 0.01) the miss rate, false-alarm rate and the share of
+Out of range is scored twice: as is (``out``) and with a box guard (``outguard``: every query outside the training box goes to the fallback). Reported: AUC, and for ``cc`` (alpha 0.05, 0.10) and ``crc`` (delta 0.01) the miss rate, false-alarm rate and the share of
 splits where the rule is defined; in range and out of range (calibrate in range, test out of range).
     python scripts/run_learned.py --problem membrane
 Writes ``results/learned_<problem>.json``. Needs ``generate_audits.py`` and ``generate_features.py`` output.
@@ -23,8 +23,8 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from contactscreen.audit import load_audit                                            # noqa: E402
-from contactscreen.config import AUDIT_DIR, FEATURE_DIR, PROBLEMS, RESULTS, SEEDS       # noqa: E402
-from contactscreen.conformal import auc, conformal_threshold, labels, outcome, risk_threshold   # noqa: E402
+from contactscreen.config import AUDIT_DIR, FEATURE_DIR, PROBLEMS, RESULTS, SEEDS, make_problem       # noqa: E402
+from contactscreen.conformal import auc, conformal_threshold, flagged, labels, outcome, risk_threshold   # noqa: E402
 from contactscreen.environment import environment_info                                 # noqa: E402
 from contactscreen.features import FeatureScorer                                       # noqa: E402
 
@@ -50,7 +50,14 @@ def counts_row(test, tau) -> np.ndarray:
     return np.array([o["miss"], o["silent"], o["false_alarm"], o["good"], o["flagged"], o["n"], float(o["tau_finite"]), 1.0])
 
 
-def replicate_counts(pool_scores: dict, out_scores: dict, pool_truth, out_truth, rng) -> dict:
+def guarded_counts_row(test, tau, inside: np.ndarray) -> np.ndarray:
+    """Counts when queries outside the training box are always sent to the fallback (box guard)."""
+    fl = flagged(test, tau) | ~inside
+    return np.array([int((test.silent & ~fl).sum()), int(test.silent.sum()), int((test.good & fl).sum()), int(test.good.sum()),
+                     int(fl.sum()), len(fl), float(np.isfinite(tau)), 1.0])
+
+
+def replicate_counts(pool_scores: dict, out_scores: dict, pool_truth, out_truth, rng, out_inside: np.ndarray) -> dict:
     """``{variant|setting|rule: counts}`` summed over ``N_SPLITS`` splits; ``pool_scores[v] = (score, n_cal_v)``."""
     totals: dict = {}
     n_pool = len(pool_truth[0])
@@ -61,16 +68,18 @@ def replicate_counts(pool_scores: dict, out_scores: dict, pool_truth, out_truth,
             cal, test = subset(lab, perm[:n_v]), subset(lab, perm[n_v:])
             out_lab = labels(out_scores[name], *out_truth)
             for rule, tau in thresholds(cal).items():
-                for setting, target in (("in", test), ("out", out_lab)):
+                for setting, row in (("in", counts_row(test, tau)), ("out", counts_row(out_lab, tau)),
+                                     ("outguard", guarded_counts_row(out_lab, tau, out_inside))):
                     key = f"{name}|{setting}|{rule}"
-                    totals[key] = totals.get(key, 0) + counts_row(target, tau)
+                    totals[key] = totals.get(key, 0) + row
     return totals
 
 
-def process_replicate(path: Path, problem: str, models: list, rng) -> tuple:
+def process_replicate(path: Path, problem: str, models: list, rng, box) -> tuple:
     """Per-model, per-variant counts and AUCs of one replicate (a variant is absent if no score could be fitted)."""
     data = np.load(path)
     results, aucs = {}, {}
+    out_inside = box(data["out|mu"])
     for kind, r in models:
         g = lambda tag, f: data[f"{tag}|{kind}|{r}|{f}"]
         fit_lab = labels(g("fit", "eta"), g("fit", "err"), g("fit", "converged"))
@@ -91,7 +100,7 @@ def process_replicate(path: Path, problem: str, models: list, rng) -> tuple:
             value = auc(lab.eta[lab.silent], lab.eta[lab.good])
             if value is not None:
                 aucs.setdefault(f"{kind}|{r}|{name}", []).append(value)
-        for key, row in replicate_counts(pool_scores, out_scores, pool_truth, out_truth, rng).items():
+        for key, row in replicate_counts(pool_scores, out_scores, pool_truth, out_truth, rng, out_inside).items():
             results.setdefault(f"{kind}|{r}|{key}", []).append(row)
     return results, aucs
 
@@ -110,7 +119,7 @@ def main() -> None:
     cells: dict = {}
     auc_all: dict = {}
     for path in files:
-        res, aucs = process_replicate(path, args.problem, models, rng)
+        res, aucs = process_replicate(path, args.problem, models, rng, make_problem(args.problem).in_box)
         for k, rows in res.items():
             cells.setdefault(k, []).extend(rows)
         for k, v in aucs.items():
@@ -135,7 +144,7 @@ def print_tables(out: dict, models: list) -> None:
             for v in [f"eta@{budget}"] + [f"learned@{budget}:{budget // s}" for s in out["fit_shares"]]:
                 a, n = out["auc"].get(f"{kind}|{r}|{v}"), out["n_replicates_present"].get(f"{kind}|{r}|{v}", 0)
                 line = f"   {v:<18} AUC {'  -- ' if a is None else format(a, '.3f')} ({n} rep) |"
-                for setting in ("in", "out"):
+                for setting in ("in", "out", "outguard"):
                     c = out["cells"].get(f"{kind}|{r}|{v}|{setting}|cc0.1")
                     line += f" {setting}: {f(c['miss'] if c else None)} {f(c['fpr'] if c else None)} {f(c['defined'] if c else None)} |"
                 print(line)
