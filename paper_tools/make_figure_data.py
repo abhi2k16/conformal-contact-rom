@@ -157,6 +157,12 @@ def benchmarks() -> None:
         xy_c = problem.xy[contact] if name == "membrane" else problem.xy_contact
         arrays[f"{name}|xy_contact"], arrays[f"{name}|active"] = xy_c, sol.active_mask.astype(float)
         arrays[f"{name}|normal_disp"] = problem.B @ sol.u
+        n_full = problem.mesh.nodes.shape[0] * (1 if name == "membrane" else 3)
+        u_full = np.zeros(n_full)
+        u_full[problem.free] = sol.u                            # Dirichlet unknowns stay zero
+        arrays[f"{name}|U_full"] = u_full
+        arrays[f"{name}|contact_nodes"] = problem.free[contact] // (1 if name == "membrane" else 3)
+        arrays[f"{name}|mu"] = mu
         if name == "membrane":
             arrays["membrane|xy"], arrays["membrane|u"] = problem.xy, sol.u
         meta[name] = {"mu": mu.tolist(), "param_names": list(problem.param_names), "n_active": int(sol.active_mask.sum()),

@@ -118,6 +118,7 @@ class Membrane(ContactProblem):
         self._K = sp.csr_matrix(fes.K)[free][:, free]
         self._M = sp.csr_matrix(fes.M)[free][:, free]
         self.xy = x[free]
+        self.mesh, self.free = mesh, free          # kept for plotting full-mesh fields (paper_tools)
         self.n_dof = len(free)
         grid = np.rint(self.xy * n).astype(int)
         chosen = np.flatnonzero((grid[:, 0] % stride == 0) & (grid[:, 1] % stride == 0))
@@ -182,6 +183,7 @@ class ElasticBlock(ContactProblem):
             fes.assemble_stiffness(D)
             self._K = sp.csr_matrix(fes.K)[free][:, free]
         self.n_dof = len(free)
+        self.mesh, self.free = mesh, free          # kept for plotting full-mesh fields (paper_tools)
         position = -np.ones(3 * len(x), dtype=int)
         position[free] = np.arange(len(free))
         interior = np.setdiff1d(np.arange(len(x)), side)

@@ -234,40 +234,95 @@ def _sketch(ax, kind: str, meta: dict) -> None:
     ax.axis("off")
 
 
-def benchmarks() -> None:
-    """Benchmark sketches (top) and one full-order solution in contact per benchmark (bottom)."""
+RENDER_PX = (1100, 900)                         # off-screen render size (pixels) of one benchmark panel
+FIELD_CMAP = "viridis"
+
+
+def _crop_white(img):
+    """Remove white margins from an RGB(A) render."""
     import numpy as np
 
+    rgb = img[..., :3].astype(int)
+    keep = np.where((rgb < 250).any(axis=2))
+    return img[keep[0].min():keep[0].max() + 1, keep[1].min():keep[1].max() + 1]
+
+
+def _render_benchmark(name: str, d, meta: dict):
+    """Full-order solution of one benchmark at true scale, drawn with fea_engine's PyVista helpers.
+
+    Membrane: the 2-D mesh lifted by the out-of-plane displacement, over the floor surface. Blocks: the deformed hex
+    mesh (``fea_engine.visualization.deformed_grid``) seen from below, over the foundation surface. Candidate contact
+    nodes in contact are red spheres. Returns (image array, colour limits, field label)."""
+    import numpy as np
+    import pyvista as pv
+
+    from contactscreen.config import make_problem
+    from fea_engine.visualization import deformed_grid, to_pyvista
+
+    problem = make_problem(name)
+    U, mu = d[f"{name}|U_full"], d[f"{name}|mu"]
+    nodes_c, active = d[f"{name}|contact_nodes"], d[f"{name}|active"] > 0.5
+    pl = pv.Plotter(off_screen=True, window_size=list(RENDER_PX))
+    pl.set_background("white")
+    if name == "membrane":
+        grid = to_pyvista(problem.mesh)
+        grid.points[:, 2] = U                               # out-of-plane displacement as height
+        field, label = U, "displacement $u$"
+        cx, cy, d0, kappa = 0.5, 0.5, meta["d0"], meta["kappa"]
+    else:
+        grid = deformed_grid(problem.mesh, U, scale=1.0)   # true scale
+        field, label = U[2::3], "displacement $u_z$"
+        p0 = 1 if meta["layered"] else 0
+        cx, cy, d0, kappa = mu[p0 + 1], mu[p0 + 2], meta["d0"], meta["kappa"]
+    clim = (float(field.min()), float(field.max()))
+    grid.point_data["field"] = field
+    pl.add_mesh(grid, scalars="field", cmap=FIELD_CMAP, clim=clim, show_edges=True, edge_color="#404040",
+                line_width=0.4, show_scalar_bar=False, ambient=0.55, diffuse=0.5)   # faces seen from below stay readable
+    xs = np.linspace(0, 1, 21)
+    X, Y = np.meshgrid(xs, xs)
+    Z = -(d0 + kappa * ((X - cx) ** 2 + (Y - cy) ** 2))
+    floor = pv.StructuredGrid(X, Y, Z)
+    pl.add_mesh(floor, style="wireframe", color="#7f7f7f", opacity=0.6, line_width=1.0)   # obstacle: see-through
+    pts = grid.points[nodes_c]
+    if active.any():
+        pl.add_mesh(pv.PolyData(pts[active]), color="#d62728", render_points_as_spheres=True, point_size=24)
+    if (~active).any():
+        pl.add_mesh(pv.PolyData(pts[~active]), color="#202020", render_points_as_spheres=True, point_size=8)
+    if name == "membrane":
+        pl.camera_position = [(1.7, -1.3, 1.5), (0.5, 0.5, -0.3), (0, 0, 1)]
+    else:
+        pl.camera_position = [(1.5, -1.1, -1.6), (0.5, 0.5, 0.05), (0, 0, 1)]  # from below: the contact face
+    img = _crop_white(pl.screenshot(return_img=True))
+    pl.close()
+    return img, clim, label
+
+
+def benchmarks() -> None:
+    """Benchmark sketches (top) and one full-order solution in contact per benchmark, rendered with fea_engine (bottom)."""
+    import numpy as np
+    from matplotlib.cm import ScalarMappable
+    from matplotlib.colors import Normalize
+
     d, meta = np.load(RESULTS / "figure_benchmarks.npz"), load("figure_benchmarks.json")
-    fig, axes = plt.subplots(2, 3, figsize=(W_IN, 0.66 * W_IN), gridspec_kw={"height_ratios": [0.8, 1.0]})
+    fig, axes = plt.subplots(2, 3, figsize=(W_IN, 0.7 * W_IN), gridspec_kw={"height_ratios": [0.75, 1.0]})
     titles = {"membrane": "Membrane", "block": "Block", "layered": "Layered block"}
     for j, name in enumerate(("membrane", "block", "layered")):
         _sketch(axes[0, j], name, meta[name])
         axes[0, j].set_title(titles[name])
         ax = axes[1, j]
-        if name == "membrane":
-            xy, field = d["membrane|xy"], d["membrane|u"]
-        else:
-            xy, field = d[f"{name}|xy_contact"], d[f"{name}|normal_disp"]
-        im = ax.tricontourf(xy[:, 0], xy[:, 1], field, levels=14, cmap="viridis")
-        xc, act = d[f"{name}|xy_contact"], d[f"{name}|active"] > 0.5
-        ax.plot(xc[~act, 0], xc[~act, 1], "o", ms=2.5, mfc="none", mec="white", mew=0.6, ls="none")
-        ax.plot(xc[act, 0], xc[act, 1], "o", ms=3.5, color="#d62728", ls="none")
-        ax.set_aspect("equal")
-        ax.set_xticks([0, 0.5, 1])
-        ax.set_yticks([0, 0.5, 1] if j == 0 else [])
-        ax.set_xlabel("$x$")
-        if j == 0:
-            ax.set_ylabel("$y$")
-        cb = fig.colorbar(im, ax=ax, orientation="horizontal", fraction=0.06, pad=0.28, aspect=18)
+        img, clim, label = _render_benchmark(name, d, meta[name])
+        ax.imshow(img)
+        ax.axis("off")
+        sm = ScalarMappable(norm=Normalize(*clim), cmap=FIELD_CMAP)
+        cb = fig.colorbar(sm, ax=ax, orientation="horizontal", fraction=0.06, pad=0.04, aspect=18)
+        cb.set_ticks([clim[0], 0.5 * (clim[0] + clim[1]), clim[1]])
+        cb.set_ticklabels([f"{v:.2g}" for v in (clim[0], 0.5 * (clim[0] + clim[1]), clim[1])])
         cb.ax.tick_params(labelsize=8)
-        lo_v, hi_v = float(field.min()), float(field.max())
-        cb.set_ticks([lo_v, 0.5 * (lo_v + hi_v), hi_v])
-        cb.set_ticklabels([f"{v:.2g}" for v in (lo_v, 0.5 * (lo_v + hi_v), hi_v)])
-        cb.set_label("displacement $u$" if name == "membrane" else "bottom-face $u_z$", fontsize=8)
-    handles = [plt.Line2D([], [], marker="o", ls="none", color="#d62728", ms=4, label="candidate node in contact"),
-               plt.Line2D([], [], marker="o", ls="none", mfc="none", mec="0.3", ms=4, label="candidate node not in contact")]
-    fig.legend(handles=handles, loc="lower center", ncol=2, frameon=False)
+        cb.set_label(label, fontsize=8)
+    handles = [plt.Line2D([], [], marker="o", ls="none", color="#d62728", ms=5, label="contact node, in contact"),
+               plt.Line2D([], [], marker="o", ls="none", color="#202020", ms=3, label="not in contact"),
+               plt.Line2D([], [], ls="-", color="#7f7f7f", lw=1.0, label="rigid obstacle")]
+    fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False)
     fig.tight_layout(rect=[0, 0.05, 1, 1])
     save(fig, "benchmarks.pdf")
 
