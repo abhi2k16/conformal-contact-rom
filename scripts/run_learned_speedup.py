@@ -7,7 +7,10 @@ score additionally pays its feature computation (timed). Differences from E: ``-
 used for evaluation (no tuning half), and thresholds (and the learned score) are redrawn ``--draws`` times, so the
 calibration-draw variability is reported instead of a single draw.
 Every variant spends the same full-order budget ``T``: ``eta@T`` calibrates on ``T`` pool queries; ``learned@T:F`` fits on
-``F`` fresh queries (``generate_features.py``, tag ``fit``) and calibrates on ``T - F`` pool queries. One thread; run alone:
+``F`` fresh queries (``generate_features.py``, tag ``fit``) and calibrates on ``T - F`` pool queries; ``xconf@T`` cross-fits the
+learned score in ``N_FOLDS_XC`` folds on the same ``T`` pool queries and uses the cross-conformal rule (Section 14; each
+query then pays ``N_FOLDS_XC`` scorings, timed). The per-query measurements are saved to
+``results/learned_speedup_<problem>_raw.npz``; ``--reuse`` skips the timing and re-evaluates from that file. One thread; run alone:
     python scripts/run_learned_speedup.py --problem layered
 Writes ``results/learned_speedup_<problem>.json``. Needs the audit, features and ``fallback_<problem>.json`` of replicate 0.
 """
@@ -29,7 +32,8 @@ import numpy as np                                                              
 
 from contactscreen.audit import build_models                                      # noqa: E402
 from contactscreen.config import PROBLEMS, RESULTS, SEEDS, features_path, make_problem, make_settings   # noqa: E402
-from contactscreen.conformal import (QueryLabels, conformal_threshold, flagged, labels, risk_threshold)   # noqa: E402
+from contactscreen.conformal import (QueryLabels, conformal_threshold, cross_conformal_flags, flagged, labels,
+                                     risk_threshold)   # noqa: E402
 from contactscreen.features import FeatureScorer, query_features                  # noqa: E402
 from contactscreen.fom import FullOrderSolver, energy_error, time_call           # noqa: E402
 from contactscreen.rom import admissibility_indicator                            # noqa: E402
@@ -41,6 +45,8 @@ log = logging.getLogger("run_learned_speedup")
 
 BUDGET = 160
 FIT_SIZES = (40, 80)
+N_FOLDS_XC = 5
+XC_ALPHAS = {"cc0.05": 0.05, "cc0.1": 0.10}
 RULES = {"cc0.05": lambda lab: conformal_threshold(lab.eta[lab.silent], 0.05),
          "cc0.1": lambda lab: conformal_threshold(lab.eta[lab.silent], 0.10),
          "crc0.01": lambda lab: risk_threshold(lab.eta, lab.silent, 0.01),
@@ -91,6 +97,7 @@ def draw_rows(feat, key, d, t_cold, rng) -> dict:
 
     cal_idx = perm[:BUDGET]
     evaluate(f"eta@{BUDGET}", g("pool", "eta")[cal_idx], d["eta"], 0.0)
+    out[f"xconf@{BUDGET}"] = xconf_rows(g("pool", "X"), pool_lab, cal_idx, d, test_eta, t_cold, rng)
     for n_fit in FIT_SIZES:
         rows = rng.permutation(len(fit_lab.eta))[:n_fit]
         rows = rows[fit_lab.converged[rows]]
@@ -100,6 +107,36 @@ def draw_rows(feat, key, d, t_cold, rng) -> dict:
         cal_idx = perm[:BUDGET - n_fit]
         evaluate(f"learned@{BUDGET}:{n_fit}", scorer.score(g("pool", "X")[cal_idx]), scorer.score(d["X"]), d["t_feat"])
     return out
+
+
+def xconf_rows(X_pool, pool_lab, cal_idx, d, test_eta, t_cold, rng) -> dict:
+    """Cross-fitted learned score on the ``cal_idx`` pool queries; rows of the cross-conformal ``cc`` rules."""
+    folds = rng.permutation(len(cal_idx)) % N_FOLDS_XC
+    oof, test_scores = np.zeros(len(cal_idx)), np.zeros((N_FOLDS_XC, len(d["eta"])))
+    scorers = []
+    for k in range(N_FOLDS_XC):
+        train = cal_idx[(folds != k) & pool_lab.converged[cal_idx]]
+        scorer = FeatureScorer.fit(X_pool[train], pool_lab.silent[train])
+        if scorer is None:
+            scorers = None
+            break
+        scorers.append(scorer)
+        oof[folds == k] = scorer.score(X_pool[cal_idx[folds == k]])
+        test_scores[k] = scorer.score(d["X"])
+    t_score = 0.0
+    if scorers is not None:                                    # per-query cost of the fold scorings, from one batch
+        t_score = time_call(lambda: [sc.score(d["X"]) for sc in scorers], 3)[0] / len(d["eta"])
+    is_fail = pool_lab.silent[cal_idx]
+    dd = {"t_rom": d["t_rom"] + d["t_feat"] + t_score}
+    rows = {}
+    for rule, alpha in XC_ALPHAS.items():
+        if scorers is None:
+            flags, defined = np.ones(len(d["eta"]), bool), False
+        else:
+            flags, defined = cross_conformal_flags(oof[is_fail], folds[is_fail], test_scores, alpha)
+        rows[rule] = {"tau_defined": bool(defined),
+                      **pipeline_row(flags | ~test_eta.converged, test_eta, dd, t_cold, d["t_warm"], slice(None))}
+    return rows
 
 
 def aggregate(rows: list) -> dict:
@@ -139,6 +176,24 @@ def print_tables(r: dict) -> None:
             print(f"   {cell:<24}{c['speedup_cold']:>6.2f} ({c['speedup_cold_sd']:.2f}) |{c['speedup_warm']:>6.2f} ({c['speedup_warm_sd']:.2f})   miss {miss}   fallback {c['fallback']:.2f}   defined {c['defined']:.2f}")
 
 
+def save_raw(m: dict, path: Path) -> None:
+    arrays = {"t_cold": m["t_cold"]}
+    for (kind, r), d in m["models"].items():
+        arrays.update({f"{kind}|{r}|{f}": v for f, v in d.items()})
+    np.savez_compressed(path, **arrays)
+
+
+def load_raw(path: Path) -> dict:
+    with np.load(path) as data:
+        models: dict = {}
+        for name in data.files:
+            if name == "t_cold":
+                continue
+            kind, r, f = name.split("|")
+            models.setdefault((kind, int(r)), {})[f] = data[name]
+        return {"t_cold": data["t_cold"], "models": models}
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -147,6 +202,7 @@ def main() -> None:
     p.add_argument("--repeats", type=int, default=2)
     p.add_argument("--draws", type=int, default=30)
     p.add_argument("--seed", type=int, default=0, help="replicate whose models, features and seed thresholds are used")
+    p.add_argument("--reuse", action="store_true", help="re-evaluate from the saved per-query measurements")
     args = p.parse_args()
     fallback_json, feature_file = RESULTS / f"fallback_{args.problem}.json", features_path(args.problem, args.seed)
     for path in (fallback_json, feature_file):
@@ -155,12 +211,20 @@ def main() -> None:
     chosen = json.loads(fallback_json.read_text(encoding="utf-8"))["D"]["models"]
     problem, settings = make_problem(args.problem), make_settings(args.problem, args.seed)
     solver = FullOrderSolver(problem)
+    if args.reuse and not (RESULTS / f"learned_speedup_{args.problem}_raw.npz").exists():
+        raise FileNotFoundError("--reuse needs a previous timing run")
     models = {k: m for k, m in build_models(problem, solver, problem.sample(np.random.default_rng(settings.seed), settings.n_train),
                                             settings).items() if k[0] == "nmf"}
     rels = {k: chosen[f"{k[0]}|{k[1]}"]["chosen_rel"] for k in models}
     mus = problem.sample(np.random.default_rng(SEEDS["timing_queries"] + args.seed), args.n_time)
     log.info("%s: N=%d, %d timing queries, seed thresholds %s", problem.name, problem.n_dof, args.n_time, rels)
-    m = measure(problem, solver, models, rels, mus, args.repeats)
+    raw_path = RESULTS / f"learned_speedup_{args.problem}_raw.npz"
+    if args.reuse:
+        m = load_raw(raw_path)
+        args.n_time = len(m["t_cold"])
+    else:
+        m = measure(problem, solver, models, rels, mus, args.repeats)
+        save_raw(m, raw_path)
     feat = np.load(feature_file)
     result = {"problem": args.problem, "n_time": args.n_time, "repeats": args.repeats, "draws": args.draws, "budget": BUDGET,
               "fit_sizes": list(FIT_SIZES), "seed_rels": {f"{k[0]}|{k[1]}": v for k, v in rels.items()}, "seeds": SEEDS,
