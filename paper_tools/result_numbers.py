@@ -48,7 +48,7 @@ def fmt_value(path: str, x: float) -> str:
         return fmt_miss(x)
     if ".M_sizes." in path and name in ("mean", "p90"):                     # calibration sizes of experiment M
         return f"{round(x):,}".replace(",", "\\,")
-    if name in COUNT_FIELDS or name.startswith("queries_needed"):          # match the field name, not a substring
+    if name in COUNT_FIELDS or name.startswith(("queries_needed", "need@")):          # match the field name, not a substring
         return f"{x:g}" if x != round(x) else f"{int(round(x)):,}".replace(",", "\\,")
     if name in ("budgets", "lams", "margins", "fit_sizes", "fit_shares", "budget"):     # design values: as written in the scripts
         return f"{x:g}"
@@ -301,6 +301,21 @@ def summary_numbers() -> dict:
                 rates[sz].append(float(silent[np.isclose(d["shift"], sz)].mean()))
         for sz, v in rates.items():
             out[f"sum.Q.{name}.silent.{sz}"] = fmt_rate(float(np.mean(v)))
+    # E: sensitivity to the error tolerance (cells with the class-conditional rule defined in every split)
+    n_defined, max_miss = {"0.05": 0, "0.1": 0}, {"0.05": 0.0, "0.1": 0.0}
+    for name in PROBLEMS:
+        ep = load(f"eps_{name}.json")
+        for c in ep["cells"].values():
+            for alpha in ("0.05", "0.1"):
+                cell = c[f"cc{alpha}"]
+                if cell["defined"] == 1.0 and cell["miss"] is not None:
+                    n_defined[alpha] += 1
+                    max_miss[alpha] = max(max_miss[alpha], cell["miss"])
+        out[f"sum.E.{name}.ncal"] = str(ep["n_cal"])
+    out["sum.E.eps.lo"], out["sum.E.eps.mid"], out["sum.E.eps.hi"] = (f"{v:g}" for v in load("eps_block.json")["eps_values"])
+    for alpha in ("0.05", "0.1"):
+        out[f"sum.E.defined.{alpha}"], out[f"sum.E.maxmiss.{alpha}"] = str(n_defined[alpha]), fmt_miss(max_miss[alpha])
+    out["sum.E.cells"] = str(sum(len(load(f"eps_{n}.json")["cells"]) for n in PROBLEMS))
     # C: out of range, no guard, every model of a benchmark
     for name in PROBLEMS:
         o = load(f"outside_{name}.json")

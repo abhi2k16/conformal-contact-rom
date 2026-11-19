@@ -117,9 +117,10 @@ class QueryLabels:
     converged: np.ndarray
 
 
-def labels(eta: np.ndarray, err: np.ndarray, converged: np.ndarray) -> QueryLabels:
+def labels(eta: np.ndarray, err: np.ndarray, converged: np.ndarray, eps: float = EPS) -> QueryLabels:
+    """Labels for the error tolerance ``eps`` (default: the paper's ``EPS``)."""
     conv = converged > 0.5
-    return QueryLabels(eta, conv & (err > EPS), conv & (err <= EPS), conv)
+    return QueryLabels(eta, conv & (err > eps), conv & (err <= eps), conv)
 
 
 def flagged(lab: QueryLabels, tau: float, strict_greater: bool = False) -> np.ndarray:

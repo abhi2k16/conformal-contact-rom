@@ -46,25 +46,44 @@ def save(fig, name: str) -> None:
 
 
 def calibration_cost() -> None:
-    """Calibration queries needed by cc(0.05) against the silent-failure rate p, every model, with n_min / p."""
+    """Left: calibration queries for cc(0.05) against p, every model, with n_min / p. Right: the same against the median energy error."""
+    import sys
+    sys.path.insert(0, str(ROOT))
+    import numpy as np
+    from contactscreen.audit import load_audit
+    from contactscreen.config import AUDIT_DIR
     from contactscreen.conformal import min_failures
 
     n_min = min_failures(0.05)
-    fig, ax = plt.subplots(figsize=(SINGLE, 0.62 * SINGLE))
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(W_IN, 0.4 * W_IN))
     ps = [10 ** (x / 50) for x in range(-100, 1)]
-    ax.plot(ps, [n_min / p for p in ps], color="0.5", lw=1.2, ls="--", label=f"$n_{{\\min}}/p$, $n_{{\\min}} = {n_min}$")
+    ax.plot(ps, [n_min / p for p in ps], color="0.5", lw=1.2, ls="--", label=f"$n_{{\min}}/p$, $n_{{\min}} = {n_min}$")
     for name, label, marker in PROBLEMS:
         rates = load(f"coverage_{name}.json")["rates"]
         x = [r["p"] for r in rates.values()]
         y = [r["queries_needed@0.05"] for r in rates.values()]
         xerr = [[r["p"] - r["p_ci"][0] for r in rates.values()], [r["p_ci"][1] - r["p"] for r in rates.values()]]
         ax.errorbar(x, y, xerr=xerr, fmt=marker, mfc="none", color=COLORS[name], ms=6, capsize=2, label=label)
+        audits = [load_audit(f) for f in sorted(AUDIT_DIR.glob(f"{name}_seed*.npz"))]
+        meds = {}
+        for key in rates:
+            kind, r = key.split("|")[:2]
+            meds[key] = float(np.mean([np.median(a.arrays[f"pool|{kind}|{r}|err"]) for a in audits]))
+        bx.plot([meds[k] for k in rates], y, marker, mfc="none", color=COLORS[name], ms=6)
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel("silent-failure rate $p$")
-    ax.set_ylabel("calibration queries for $\\mathrm{cc}(0.05)$")
+    ax.set_ylabel("calibration queries")
     ax.legend(loc="upper right", frameon=False)
-    ax.grid(True, which="major", lw=0.4, alpha=0.5)
+    bx.set_xscale("log")
+    bx.set_yscale("log")
+    bx.axvline(0.05, color="0.5", lw=1.0, ls=":")
+    bx.set_xlabel("median relative energy error")
+    for axis in (ax, bx):
+        axis.grid(True, which="major", lw=0.4, alpha=0.5)
+    ax.set_title("(a)", loc="left")
+    bx.set_title("(b)", loc="left")
+    fig.tight_layout()
     save(fig, "calibration_cost.pdf")
 
 

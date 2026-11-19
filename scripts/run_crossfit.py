@@ -116,10 +116,13 @@ def print_tables(out: dict) -> None:
 
 
 def main() -> None:
+    global N_SPLITS
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--problem", choices=sorted(PROBLEMS), required=True)
+    p.add_argument("--splits", type=int, default=N_SPLITS, help="random calibration/test splits per replicate")
     args = p.parse_args()
+    N_SPLITS = args.splits                       # other scripts import the default of 20 from this module
     files = sorted(FEATURE_DIR.glob(f"{args.problem}_seed*.npz"))
     if not files:
         raise FileNotFoundError(f"no feature files for {args.problem}; run scripts/generate_features.py first")
