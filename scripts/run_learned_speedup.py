@@ -10,9 +10,12 @@ Every variant spends the same full-order budget ``T``: ``eta@T`` calibrates on `
 ``F`` fresh queries (``generate_features.py``, tag ``fit``) and calibrates on ``T - F`` pool queries; ``xconf@T`` cross-fits the
 learned score in ``N_FOLDS_XC`` folds on the same ``T`` pool queries and uses the cross-conformal rule (Section 14; each
 query then pays ``N_FOLDS_XC`` scorings, timed). The per-query measurements are saved to
-``results/learned_speedup_<problem>_raw.npz``; ``--reuse`` skips the timing and re-evaluates from that file. One thread; run alone:
-    python scripts/run_learned_speedup.py --problem layered
-Writes ``results/learned_speedup_<problem>.json``. Needs the audit, features and ``fallback_<problem>.json`` of replicate 0.
+``results/learned_speedup_<problem>_seed<s>_raw.npz``; ``--reuse`` skips the timing and re-evaluates from that file. One
+thread; run alone (timings must not overlap), once per replicate, then aggregate with ``aggregate_speedup.py``:
+    python scripts/run_learned_speedup.py --problem layered --seed 0
+Writes ``results/learned_speedup_<problem>_seed<s>.json``, including the one-time costs of the replicate (training
+snapshots and model construction, calibration solves, fitting of the cross-fitted score). Needs the audit, the features of the replicate
+and ``fallback_<problem>.json`` (seed-threshold fractions chosen on replicate 0, used for every replicate).
 """
 
 import sys
@@ -194,6 +197,26 @@ def load_raw(path: Path) -> dict:
         return {"t_cold": data["t_cold"], "models": models}
 
 
+def one_time_costs(feat, models, m: dict, settings, t_build: float) -> dict:
+    """One-time costs of the replicate in seconds: training snapshots plus model construction (measured), the ``BUDGET``
+    calibration solves (budget times the mean cold full-order time of the timed queries) and the fitting of the
+    cross-fitted score (``N_FOLDS_XC`` fold models on ``BUDGET`` pool queries, full hyper-parameter search), per model."""
+    out = {"n_train": int(settings.n_train), "t_build_s": float(t_build), "n_calibration": BUDGET,
+           "t_calibration_solves_s": float(BUDGET * m["t_cold"].mean()), "t_fit_xconf_s": {}}
+    for (kind, r) in models:
+        g = lambda f: feat[f"pool|{kind}|{r}|{f}"]
+        lab = labels(g("eta"), g("err"), g("converged"))
+        X, idx = g("X"), np.arange(BUDGET)
+        folds = np.random.default_rng(SEEDS["split"]).permutation(BUDGET) % N_FOLDS_XC
+
+        def fit_all():
+            for k in range(N_FOLDS_XC):
+                train = idx[(folds != k) & lab.converged[idx]]
+                FeatureScorer.fit(X[train], lab.silent[train])
+        out["t_fit_xconf_s"][f"{kind}|{r}"] = float(time_call(fit_all, 1)[0])
+    return out
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -211,14 +234,15 @@ def main() -> None:
     chosen = json.loads(fallback_json.read_text(encoding="utf-8"))["D"]["models"]
     problem, settings = make_problem(args.problem), make_settings(args.problem, args.seed)
     solver = FullOrderSolver(problem)
-    if args.reuse and not (RESULTS / f"learned_speedup_{args.problem}_raw.npz").exists():
+    if args.reuse and not (RESULTS / f"learned_speedup_{args.problem}_seed{args.seed}_raw.npz").exists():
         raise FileNotFoundError("--reuse needs a previous timing run")
-    models = {k: m for k, m in build_models(problem, solver, problem.sample(np.random.default_rng(settings.seed), settings.n_train),
-                                            settings).items() if k[0] == "nmf"}
+    t_build, built = time_call(lambda: build_models(problem, solver, problem.sample(np.random.default_rng(settings.seed), settings.n_train),
+                                                    settings))      # snapshot solves + POD + NMF, one time per replicate
+    models = {k: m for k, m in built.items() if k[0] == "nmf"}
     rels = {k: chosen[f"{k[0]}|{k[1]}"]["chosen_rel"] for k in models}
     mus = problem.sample(np.random.default_rng(SEEDS["timing_queries"] + args.seed), args.n_time)
     log.info("%s: N=%d, %d timing queries, seed thresholds %s", problem.name, problem.n_dof, args.n_time, rels)
-    raw_path = RESULTS / f"learned_speedup_{args.problem}_raw.npz"
+    raw_path = RESULTS / f"learned_speedup_{args.problem}_seed{args.seed}_raw.npz"
     if args.reuse:
         m = load_raw(raw_path)
         args.n_time = len(m["t_cold"])
@@ -226,10 +250,11 @@ def main() -> None:
         m = measure(problem, solver, models, rels, mus, args.repeats)
         save_raw(m, raw_path)
     feat = np.load(feature_file)
+    cost = one_time_costs(feat, models, m, settings, t_build)
     result = {"problem": args.problem, "n_time": args.n_time, "repeats": args.repeats, "draws": args.draws, "budget": BUDGET,
               "fit_sizes": list(FIT_SIZES), "seed_rels": {f"{k[0]}|{k[1]}": v for k, v in rels.items()}, "seeds": SEEDS,
-              "environment": environment_info(), "models": summarise(m, feat, args.draws, np.random.default_rng(SEEDS["split"]))}
-    out_path = RESULTS / f"learned_speedup_{args.problem}.json"
+              "environment": environment_info(), "one_time": cost, "models": summarise(m, feat, args.draws, np.random.default_rng(SEEDS["split"]))}
+    out_path = RESULTS / f"learned_speedup_{args.problem}_seed{args.seed}.json"
     out_path.write_text(json.dumps(result, indent=1), encoding="utf-8")
     log.info("wrote %s", out_path)
     print_tables(result)

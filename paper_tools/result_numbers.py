@@ -184,10 +184,37 @@ def summary_numbers() -> dict:
         out[f"sum.H.{name}.valid.warm.max"] = f"{max(r['speedup_warm'] for r in valid):.2f}"
         out[f"sum.H.{name}.oracle.cold.max"] = f"{max(m['rules']['oracle']['speedup_cold'] for m in h['models'].values()):.2f}"
         out[f"sum.H.{name}.valid.cold.min"] = f"{min(r['speedup_cold'] for r in valid):.2f}"
-    # J: one-time cost of the calibration solves (budget x mean cold full-order time)
+    # J: one-time costs per replicate (means over replicates) and break-even with all of them
     j = load("learned_speedup_layered.json")
-    t_cold = sum(v["t_cold_ms_mean"] for v in sp.values()) / len(sp)
-    out["sum.J.calib.seconds"] = f"{j['budget'] * t_cold / 1000:.0f}"
+    one = j["one_time"]
+    out["sum.J.calib.seconds"] = f"{one['t_calibration_solves_s']:.0f}"
+    out["sum.J.build.seconds"] = f"{one['t_build_s']:.0f}"
+    out["sum.J.ntrain"] = str(one["n_train"])
+    fits = [v["t_fit_xconf_s"] for v in sp.values()]
+    out["sum.J.fit.min"], out["sum.J.fit.max"] = f"{min(fits):.1f}", f"{max(fits):.1f}"
+    for r, v in sp.items():
+        n = r.split("|")[1]
+        c = v["cells"]["xconf@160|cc0.1"]
+        out[f"sum.J.cost.{n}.fit"] = f"{v['t_fit_xconf_s']:.1f}"
+        out[f"sum.J.cost.{n}.onetime"] = f"{one['t_calibration_solves_s'] + v['t_fit_xconf_s']:.0f}"
+        out[f"sum.J.cost.{n}.onetime_all"] = f"{one['t_build_s'] + one['t_calibration_solves_s'] + v['t_fit_xconf_s']:.0f}"
+        out[f"sum.J.cost.{n}.rom"], out[f"sum.J.cost.{n}.feat"] = f"{v['t_rom_ms_mean']:.1f}", f"{v['t_feat_ms_mean']:.1f}"
+        out[f"sum.J.cost.{n}.cold"], out[f"sum.J.cost.{n}.warm"] = f"{v['t_cold_ms_mean']:.0f}", f"{v['t_warm_ms_mean']:.0f}"
+        for kind in ("cold", "warm"):
+            s = c[f"speedup_{kind}"]
+            pipe = v["t_cold_ms_mean"] / s                                     # mean pipeline time per query, ms
+            out[f"sum.J.cost.{n}.pipe_{kind}"] = f"{pipe:.0f}"
+            if s > 1.0:
+                saving = v["t_cold_ms_mean"] - pipe                            # ms saved per query against the cold full-order solve
+                out[f"sum.J.cost.{n}.q_{kind}"] = f"{1e3 * (one['t_calibration_solves_s'] + v['t_fit_xconf_s']) / saving:.0f}"
+                out[f"sum.J.cost.{n}.qall_{kind}"] = f"{1e3 * (one['t_build_s'] + one['t_calibration_solves_s'] + v['t_fit_xconf_s']) / saving:.0f}"
+            else:
+                out[f"sum.J.cost.{n}.q_{kind}"] = out[f"sum.J.cost.{n}.qall_{kind}"] = "--"
+    nsil = [n for v in sp.values() for n in v["n_silent_per_replicate"]]
+    out["sum.J.nsilent.min"], out["sum.J.nsilent.max"] = str(min(nsil)), str(max(nsil))
+    for tag in ("q", "qall"):
+        vals = [float(out[f"sum.J.cost.{r.split('|')[1]}.{tag}_warm"]) for r in sp if out[f"sum.J.cost.{r.split('|')[1]}.{tag}_warm"] != "--"]
+        out[f"sum.J.{tag}warm.min"], out[f"sum.J.{tag}warm.max"] = f"{min(vals):.0f}", f"{max(vals):.0f}"
     # Break-even number of online queries: the budget of calibration solves (each about one cold full-order solve)
     # is repaid when the saving per query, t_cold (1 - 1/S), has accumulated: Q = budget / (1 - 1/S), S = net speedup.
     for kind in ("speedup_cold", "speedup_warm"):

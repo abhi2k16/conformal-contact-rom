@@ -187,7 +187,8 @@ def layered_speedup() -> None:
                                                   ("xconf@160", "cross-fitted, $\\mathrm{xconf}(0.1)$", "#1f77b4"))):
         cells = [models[n]["cells"][f"{variant}|cc0.1"] for n in names]
         ax.bar([i + (j - 0.5) * width for i in range(len(names))], [c["speedup_warm"] for c in cells], width,
-               yerr=[c["speedup_warm_sd"] for c in cells], capsize=3, color=color, label=label)
+               yerr=[[c["speedup_warm"] - c["speedup_warm_ci"][0] for c in cells], [c["speedup_warm_ci"][1] - c["speedup_warm"] for c in cells]],
+               capsize=3, color=color, label=label)
     ax.plot(range(len(names)), [models[n]["oracle"]["speedup_warm"] for n in names], "k_", ms=22, mew=2, label="oracle screen")
     ax.axhline(1.0, color="0.3", lw=0.8)
     ax.set_xticks(range(len(names)), [f"NMF {n.split('|')[1]}\n$p = {models[n]['silent_rate']:.2f}$" for n in names])
