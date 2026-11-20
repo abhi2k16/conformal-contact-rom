@@ -23,6 +23,7 @@ S_TOL = 0.01                  # experiment S: change of the false-alarm rate cou
 
 
 def fmt_rate(x: float) -> str:
+    x = round(x, 12)                                   # equal values from different sums print alike
     return f"{x:.3f}" if abs(x) < 0.1 else f"{x:.2f}"
 
 

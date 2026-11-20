@@ -177,6 +177,12 @@ def query_cost() -> None:
     save(fig, "query_cost.pdf")
 
 
+def fmt_p(x: float) -> str:
+    """Rate format of the generated tables (paper_tools/result_numbers.fmt_rate)."""
+    x = round(x, 12)
+    return f"{x:.3f}" if abs(x) < 0.1 else f"{x:.2f}"
+
+
 def layered_speedup() -> None:
     """Net speedup on the layered block, cc(0.1): eta against the cross-fitted indicator, warm fallback, with the oracle."""
     models = load("learned_speedup_layered.json")["models"]
@@ -191,7 +197,7 @@ def layered_speedup() -> None:
                capsize=3, color=color, label=label)
     ax.plot(range(len(names)), [models[n]["oracle"]["speedup_warm"] for n in names], "k_", ms=22, mew=2, label="oracle screen")
     ax.axhline(1.0, color="0.3", lw=0.8)
-    ax.set_xticks(range(len(names)), [f"NMF {n.split('|')[1]}\n$p = {models[n]['silent_rate']:.2f}$" for n in names])
+    ax.set_xticks(range(len(names)), [f"NMF {n.split('|')[1]}\n$p = {fmt_p(models[n]['silent_rate'])}$" for n in names])
     ax.set_ylabel("net speedup, warm fallback")
     ax.legend(loc="upper left", frameon=False)
     ax.grid(True, axis="y", lw=0.4, alpha=0.5)
@@ -271,7 +277,7 @@ def workflow() -> None:
     w, gap, y, h = 22.0, 4.0, 5.0, 24.0
     xs = [i * (w + gap) for i in range(4)]
     box(a, xs[0], y, w, h, "training queries:\nfull-order solves,\nPOD basis $\\mathbf{V}$,\ndual basis $\\mathbf{U}$")
-    box(a, xs[1], y, w, h, "$T$ calibration\nqueries: full-order\nand reduced solve,\nerror $e$, label,\nfeatures")
+    box(a, xs[1], y, w, h, "$N_{\mathrm{cal}}$ calibration\nqueries: full-order\nand reduced solve,\nerror $e$, label,\nfeatures")
     box(a, xs[2], y, w, h, "$K$ fold indicators\n$s^{(j)}$; out-of-fold\nscores $o_i$ of $n$\nfailures; rank $k$")
     box(a, xs[3], y, w, h, "stored: $\\mathbf{V}$, $\\mathbf{U}$,\n$s^{(j)}$, $o_i$, $k$,\ntraining box", colour=grey)
     for i in range(3):
@@ -322,7 +328,7 @@ def silent_failure() -> None:
     ax1.set_ylabel("displacement")
     # (b) gap: full-order and lifted; negative lifted gap is penetration
     ax2.axhline(0.0, color="0.3", lw=0.8)
-    ax2.fill_between(d["xc"], np.minimum(d["gap_rom"], 0.0), 0.0, color=red, alpha=0.25, lw=0)
+    ax2.fill_between(d["xc"], np.minimum(d["gap_rom"], 0.0), 0.0, color=red, alpha=0.45, lw=0)
     ax2.plot(d["xc"], d["gap_fom"], ls="none", marker="o", mfc="none", mec="black", ms=5.5, label="full-order $g$")
     ax2.plot(d["xc"], d["gap_rom"], ls="none", marker="x", color=blue, ms=5.5, label="reduced, lifted $\\tilde{g}$")
     pen = d["gap_rom"] < 0
