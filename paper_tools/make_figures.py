@@ -234,6 +234,75 @@ def _render_error_map(d):
     return img, clim
 
 
+def workflow() -> None:
+    """Schematic of the offline calibration (panel a) and the online screened solve (panel b).
+
+    Blue boxes are computations, orange hexagons decisions, green the accepted reduced answer, red the fallback solve.
+    Coordinates are in units of 1 % of the figure width; every text is sized to fit inside its shape."""
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Polygon
+
+    blue, orange, green, red, grey = (("#eef3fa", "#1f77b4"), ("#fff3dc", "#d98c00"), ("#e6f4e7", "#2ca02c"),
+                                      ("#fbe9e9", "#d62728"), ("#f2f2f2", "0.4"))
+    fig, (a, b) = plt.subplots(2, 1, figsize=(W_IN, 0.72 * W_IN), gridspec_kw={"height_ratios": [1.0, 1.35], "hspace": 0.03})
+    for ax, top in ((a, 38), (b, 54)):
+        ax.set_xlim(-1, 101)
+        ax.set_ylim(0, top)
+        ax.set_axis_off()
+    FS = 6.9
+
+    def box(ax, x, y, w, h, text, colour=blue):
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.0,rounding_size=1.2", fc=colour[0], ec=colour[1], lw=1.1))
+        ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=FS, linespacing=1.3)
+
+    def hexagon(ax, x, y, w, h, text):
+        k = 0.14 * w                                   # width of the pointed ends
+        ax.add_patch(Polygon([(x, y + h / 2), (x + k, y + h), (x + w - k, y + h), (x + w, y + h / 2), (x + w - k, y), (x + k, y)],
+                             closed=True, fc=orange[0], ec=orange[1], lw=1.1))
+        ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=FS, linespacing=1.3)
+
+    def arrow(ax, p0, p1, label=None, label_at=None):
+        ax.add_patch(FancyArrowPatch(p0, p1, arrowstyle="-|>", mutation_scale=9, lw=1.1, color="0.25", shrinkA=0, shrinkB=0))
+        if label:
+            x, y = label_at if label_at else ((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2 + 1.6)
+            ax.text(x, y, label, ha="center", va="bottom", fontsize=6.6, color="0.15")
+
+    # (a) offline
+    a.text(-1, 37.5, "(a) Offline, once", fontsize=9, fontweight="bold", va="top")
+    w, gap, y, h = 22.0, 4.0, 5.0, 24.0
+    xs = [i * (w + gap) for i in range(4)]
+    box(a, xs[0], y, w, h, "training queries:\nfull-order solves,\nPOD basis $\\mathbf{V}$,\ndual basis $\\mathbf{U}$")
+    box(a, xs[1], y, w, h, "$T$ calibration\nqueries: full-order\nand reduced solve,\nerror $e$, label,\nfeatures")
+    box(a, xs[2], y, w, h, "$K$ fold indicators\n$s^{(j)}$; out-of-fold\nscores $o_i$ of $n$\nfailures; rank $k$")
+    box(a, xs[3], y, w, h, "stored: $\\mathbf{V}$, $\\mathbf{U}$,\n$s^{(j)}$, $o_i$, $k$,\ntraining box", colour=grey)
+    for i in range(3):
+        arrow(a, (xs[i] + w + 0.5, y + h / 2), (xs[i + 1] - 0.5, y + h / 2))
+
+    # (b) online: hexagons are decisions
+    b.text(-1, 53.5, "(b) Online, for every query $\\mu$", fontsize=9, fontweight="bold", va="top")
+    d, w, ymid, hb, hd = 14.0, 12.0, 36.0, 14.0, 14.0
+    gap = (100 - (3 * d + 3 * w)) / 5
+    xpos, cur = [], 0.0
+    for width in (d, w, d, w, d, w):
+        xpos.append(cur)
+        cur += width + gap
+    widths = (d, w, d, w, d, w)
+    hexagon(b, xpos[0], ymid - hd / 2, d, hd, "$\\mu$ in\nthe box?")
+    box(b, xpos[1], ymid - hb / 2, w, hb, "reduced\nsolve, lift\n($t_{\\mathrm{R}}$)")
+    hexagon(b, xpos[2], ymid - hd / 2, d, hd, "solver\nconverged?")
+    box(b, xpos[3], ymid - hb / 2, w, hb, "features,\nscores, $c$\n($t_{\\mathrm{ind}}$)")
+    hexagon(b, xpos[4], ymid - hd / 2, d, hd, "$c < k$?")
+    box(b, xpos[5], ymid - hb / 2, w, hb, "accept\nreduced\nanswer", colour=green)
+    for i in range(5):
+        arrow(b, (xpos[i] + widths[i] + 0.3, ymid), (xpos[i + 1] - 0.3, ymid), "yes" if i in (0, 2, 4) else None)
+    # fallback box below the decisions; each "no" branch drops straight onto it
+    fb_x0, fb_x1, fb_y, fb_h = xpos[0], xpos[4] + d, 4.0, 10.0
+    box(b, fb_x0, fb_y, fb_x1 - fb_x0, fb_h, "fallback solve: full-order model, warm-started\nfrom the reduced active set ($t_{\\mathrm{FO}}$)", colour=red)
+    for i in (0, 2, 4):
+        cx = xpos[i] + d / 2
+        arrow(b, (cx, ymid - hd / 2 - 0.3), (cx, fb_y + fb_h + 0.3), "no", label_at=(cx + 2.2, (ymid - hd / 2 + fb_y + fb_h) / 2 - 1.0))
+    save(fig, "workflow.pdf")
+
+
 def silent_failure() -> None:
     """One silent failure (membrane, NMF 24): profiles along a row of candidate contact nodes and the 2-D error map."""
     import numpy as np
@@ -490,7 +559,7 @@ def main() -> None:
     import sys
     sys.path.insert(0, str(ROOT))
     plt.rcParams.update(STYLE)
-    for draw in (silent_failure, roc_curves, benchmarks, threshold_figure, calibration_cost, outside_tradeoff, graded_shift,
+    for draw in (workflow, silent_failure, roc_curves, benchmarks, threshold_figure, calibration_cost, outside_tradeoff, graded_shift,
                  query_cost, layered_speedup):
         draw()
     if not math.isfinite(W_IN):
