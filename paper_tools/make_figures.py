@@ -249,8 +249,8 @@ def workflow() -> None:
 
     blue, orange, green, red, grey = (("#eef3fa", "#1f77b4"), ("#fff3dc", "#d98c00"), ("#e6f4e7", "#2ca02c"),
                                       ("#fbe9e9", "#d62728"), ("#f2f2f2", "0.4"))
-    fig, (a, b) = plt.subplots(2, 1, figsize=(W_IN, 0.72 * W_IN), gridspec_kw={"height_ratios": [1.0, 1.35], "hspace": 0.03})
-    for ax, top in ((a, 38), (b, 54)):
+    fig, (a, b) = plt.subplots(2, 1, figsize=(W_IN, 0.45 * W_IN), gridspec_kw={"height_ratios": [22, 36], "hspace": 0.06})
+    for ax, top in ((a, 22), (b, 36)):
         ax.set_xlim(-1, 101)
         ax.set_ylim(0, top)
         ax.set_axis_off()
@@ -273,19 +273,19 @@ def workflow() -> None:
             ax.text(x, y, label, ha="center", va="bottom", fontsize=6.6, color="0.15")
 
     # (a) offline
-    a.text(-1, 37.5, "(a) Offline, once", fontsize=9, fontweight="bold", va="top")
-    w, gap, y, h = 22.0, 4.0, 5.0, 24.0
+    a.text(-1, 21.8, "(a) Offline, once", fontsize=9, fontweight="bold", va="top")
+    w, gap, y, h = 22.0, 4.0, 1.0, 16.0
     xs = [i * (w + gap) for i in range(4)]
     box(a, xs[0], y, w, h, "training queries:\nfull-order solves,\nPOD basis $\\mathbf{V}$,\ndual basis $\\mathbf{U}$")
-    box(a, xs[1], y, w, h, "$N_{\mathrm{cal}}$ calibration\nqueries: full-order\nand reduced solve,\nerror $e$, label,\nfeatures")
+    box(a, xs[1], y, w, h, "$N_{\\mathrm{cal}}$ calibration\nqueries: full-order\nand reduced solve,\nerror $e$, label,\nfeatures")
     box(a, xs[2], y, w, h, "$K$ fold indicators\n$s^{(j)}$; out-of-fold\nscores $o_i$ of $n$\nfailures; rank $k$")
     box(a, xs[3], y, w, h, "stored: $\\mathbf{V}$, $\\mathbf{U}$,\n$s^{(j)}$, $o_i$, $k$,\ntraining box", colour=grey)
     for i in range(3):
         arrow(a, (xs[i] + w + 0.5, y + h / 2), (xs[i + 1] - 0.5, y + h / 2))
 
     # (b) online: hexagons are decisions
-    b.text(-1, 53.5, "(b) Online, for every query $\\mu$", fontsize=9, fontweight="bold", va="top")
-    d, w, ymid, hb, hd = 14.0, 12.0, 36.0, 14.0, 14.0
+    b.text(-1, 35.8, "(b) Online, for every query $\\mu$", fontsize=9, fontweight="bold", va="top")
+    d, w, ymid, hb, hd = 14.0, 12.0, 24.5, 11.5, 11.5
     gap = (100 - (3 * d + 3 * w)) / 5
     xpos, cur = [], 0.0
     for width in (d, w, d, w, d, w):
@@ -301,11 +301,11 @@ def workflow() -> None:
     for i in range(5):
         arrow(b, (xpos[i] + widths[i] + 0.3, ymid), (xpos[i + 1] - 0.3, ymid), "yes" if i in (0, 2, 4) else None)
     # fallback box below the decisions; each "no" branch drops straight onto it
-    fb_x0, fb_x1, fb_y, fb_h = xpos[0], xpos[4] + d, 4.0, 10.0
+    fb_x0, fb_x1, fb_y, fb_h = xpos[0], xpos[4] + d, 0.8, 7.5
     box(b, fb_x0, fb_y, fb_x1 - fb_x0, fb_h, "fallback solve: full-order model, warm-started\nfrom the reduced active set ($t_{\\mathrm{FO}}$)", colour=red)
     for i in (0, 2, 4):
         cx = xpos[i] + d / 2
-        arrow(b, (cx, ymid - hd / 2 - 0.3), (cx, fb_y + fb_h + 0.3), "no", label_at=(cx + 2.2, (ymid - hd / 2 + fb_y + fb_h) / 2 - 1.0))
+        arrow(b, (cx, ymid - hd / 2 - 0.3), (cx, fb_y + fb_h + 0.3), "no", label_at=(cx + 2.2, (ymid - hd / 2 + fb_y + fb_h) / 2 - 0.8))
     save(fig, "workflow.pdf")
 
 
