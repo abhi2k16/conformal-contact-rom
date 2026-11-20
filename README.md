@@ -3,6 +3,8 @@
 [![Python](https://img.shields.io/badge/Python-%3E%3D3.10-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![NumPy](https://img.shields.io/badge/NumPy-2.2.6-013243?logo=numpy)](https://numpy.org/)
 [![SciPy](https://img.shields.io/badge/SciPy-1.15.3-8CAAE6?logo=scipy)](https://scipy.org/)
+[![fea_engine](https://img.shields.io/badge/fea__engine-computation_suite-3776AB)](https://github.com/abhi2k16/fea-rom-computation-suite/tree/main/fea_engine)
+[![rom_engine](https://img.shields.io/badge/rom__engine-computation_suite-3776AB)](https://github.com/abhi2k16/fea-rom-computation-suite/tree/main/rom_engine)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 > **Can a reduced-order contact model detect when its answer is wrong before that answer is trusted?**
@@ -18,7 +20,7 @@ The reduced model handles queries cheaply. A calibrated screen decides which ans
 | **Silent failure** | The reduced solver converges, but the energy error exceeds `EPS = 0.05` |
 | **Screening signal** | An admissibility indicator computed from each reduced answer |
 | **Main guarantee** | A class-conditional conformal threshold bounds the probability of missing a silent failure under exchangeability |
-| **Full-order dependencies** | `fea_engine` and `rom_engine`, provided by the sibling `computation-suite` project |
+| **Full-order dependencies** | [`fea_engine`](https://github.com/abhi2k16/fea-rom-computation-suite/tree/main/fea_engine) and [`rom_engine`](https://github.com/abhi2k16/fea-rom-computation-suite/tree/main/rom_engine), provided by the sibling [`computation-suite`](https://github.com/abhi2k16/fea-rom-computation-suite) project |
 
 ## How it works
 
@@ -51,7 +53,7 @@ The benchmark presets, mesh sizes, and reduced-model settings are defined in [`c
 ### Requirements
 
 - Python 3.10 or later
-- This repository and the sibling `computation-suite` repository containing `fea_engine` and `rom_engine`
+- This repository and the sibling [`computation-suite`](https://github.com/abhi2k16/fea-rom-computation-suite) repository containing the [`fea_engine`](https://github.com/abhi2k16/fea-rom-computation-suite/tree/main/fea_engine) and [`rom_engine`](https://github.com/abhi2k16/fea-rom-computation-suite/tree/main/rom_engine) packages
 
 The external solver packages are not vendored here. From this repository's root, create an environment and install the project and its dependencies:
 
