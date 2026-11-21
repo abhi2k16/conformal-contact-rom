@@ -1,4 +1,4 @@
-﻿{
+{
  "problem": "membrane",
  "n_replicates": 8,
  "n_splits": 100,

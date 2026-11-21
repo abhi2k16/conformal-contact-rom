@@ -1,4 +1,4 @@
-﻿{
+{
  "problem": "layered",
  "n_replicates": 4,
  "n_splits": 100,
