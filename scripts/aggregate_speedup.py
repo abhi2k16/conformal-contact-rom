@@ -1,4 +1,4 @@
-"""Aggregate the per-replicate timing runs of experiment J (``run_learned_speedup.py``) over replicates.
+﻿"""Aggregate the per-replicate timing runs of experiment J (``run_learned_speedup.py``) over replicates.
 
 Replicates are the independent units: for every model and every (variant, rule) cell the speedups, the fallback share
 and the failure counts are averaged over replicates, with a 95 % percentile-bootstrap interval of the mean over replicates;
@@ -65,11 +65,11 @@ def main() -> None:
                  "n_silent_per_replicate": n_silent}
         for key in ("t_cold_ms_mean", "t_warm_ms_mean", "t_rom_ms_mean", "t_feat_ms_mean"):
             entry[key], entry[f"{key}_ci"] = mean_ci([m[key] for m in per], rng)
-        oracle = {}
+        Exact-error = {}
         for key in ("fallback", "speedup_cold", "speedup_warm"):
-            oracle[key], oracle[f"{key}_ci"] = mean_ci([m["oracle"][key] for m in per], rng)
-        oracle["missed"], oracle["n_silent"] = int(sum(m["oracle"]["missed"] for m in per)), int(sum(n_silent))
-        entry["oracle"] = oracle
+            Exact-error[key], Exact-error[f"{key}_ci"] = mean_ci([m["Exact-error"][key] for m in per], rng)
+        Exact-error["missed"], Exact-error["n_silent"] = int(sum(m["Exact-error"]["missed"] for m in per)), int(sum(n_silent))
+        entry["Exact-error"] = Exact-error
         names = sorted({c for m in per for c in m["cells"]}, key=lambda c: list(first["models"][name]["cells"]).index(c)
                        if c in first["models"][name]["cells"] else 99)
         entry["cells"] = {}

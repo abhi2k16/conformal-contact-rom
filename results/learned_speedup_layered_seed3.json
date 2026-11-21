@@ -1,4 +1,4 @@
-{
+﻿{
  "problem": "layered",
  "n_time": 120,
  "repeats": 2,
@@ -63,7 +63,7 @@
    "t_warm_ms_mean": 276.5552958334107,
    "t_rom_ms_mean": 3.1681616667507724,
    "t_feat_ms_mean": 0.44954916684218915,
-   "oracle": {
+   "Exact-error": {
     "fallback": 0.3333333333333333,
     "missed": 0,
     "n_silent": 40,
@@ -221,7 +221,7 @@
    "t_warm_ms_mean": 264.0006416667651,
    "t_rom_ms_mean": 3.1238308333437694,
    "t_feat_ms_mean": 0.4311783334439193,
-   "oracle": {
+   "Exact-error": {
     "fallback": 0.175,
     "missed": 0,
     "n_silent": 21,
@@ -379,7 +379,7 @@
    "t_warm_ms_mean": 251.8040191672602,
    "t_rom_ms_mean": 3.2641941673015635,
    "t_feat_ms_mean": 0.4454100004901799,
-   "oracle": {
+   "Exact-error": {
     "fallback": 0.15833333333333333,
     "missed": 0,
     "n_silent": 19,
@@ -537,7 +537,7 @@
    "t_warm_ms_mean": 244.39141499957864,
    "t_rom_ms_mean": 3.270745833287947,
    "t_feat_ms_mean": 0.4392966664454434,
-   "oracle": {
+   "Exact-error": {
     "fallback": 0.041666666666666664,
     "missed": 0,
     "n_silent": 5,

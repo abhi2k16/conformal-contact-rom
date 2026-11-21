@@ -1,4 +1,4 @@
-"""Experiment J: net speedup of the screened pipeline with the learned score, against the standard indicator (``layered``).
+﻿"""Experiment J: net speedup of the screened pipeline with the learned score, against the standard indicator (``layered``).
 
 Same pipeline cost model as experiment E (``run_fallback.py``): every query pays the reduced solve and the score; a
 flagged query also pays a full-order fallback (cold, or warm-started with the seed threshold chosen in experiment D,
@@ -161,11 +161,11 @@ def summarise(m: dict, feat, draws: int, rng) -> dict:
                 for rule, row in rules.items():
                     per.setdefault(f"{variant}|{rule}", []).append(row)
         test = labels(d["eta"], d["err"], d["conv"])
-        oracle = pipeline_row(~test.converged | test.silent, test, {"t_rom": d["t_rom"]}, m["t_cold"], d["t_warm"], slice(None))
+        Exact-error = pipeline_row(~test.converged | test.silent, test, {"t_rom": d["t_rom"]}, m["t_cold"], d["t_warm"], slice(None))
         out[f"{key[0]}|{key[1]}"] = {"silent_rate": float(test.silent.mean()), "n_silent": int(test.silent.sum()),
                                      "t_cold_ms_mean": 1e3 * float(m["t_cold"].mean()), "t_warm_ms_mean": 1e3 * float(d["t_warm"].mean()),
                                      "t_rom_ms_mean": 1e3 * float(d["t_rom"].mean()), "t_feat_ms_mean": 1e3 * float(d["t_feat"].mean()),
-                                     "oracle": oracle, "cells": {k: aggregate(v) for k, v in per.items()}}
+                                     "Exact-error": Exact-error, "cells": {k: aggregate(v) for k, v in per.items()}}
     return out
 
 
@@ -173,7 +173,7 @@ def print_tables(r: dict) -> None:
     print(f"\n=== J ({r['problem']}): {r['n_time']} timing queries, {r['draws']} calibration draws, budget T = {BUDGET}; speedup cold | warm (sd), miss rate, fallback share, rule defined")
     for name, v in r["models"].items():
         print(f"-- {name}: silent rate {v['silent_rate']:.2f} ({v['n_silent']}); cold {v['t_cold_ms_mean']:.0f} ms, warm {v['t_warm_ms_mean']:.0f} ms, "
-              f"ROM+eta {v['t_rom_ms_mean']:.1f} ms, features {v['t_feat_ms_mean']:.1f} ms; oracle {v['oracle']['speedup_cold']:.1f} | {v['oracle']['speedup_warm']:.1f}")
+              f"ROM+eta {v['t_rom_ms_mean']:.1f} ms, features {v['t_feat_ms_mean']:.1f} ms; Exact-error {v['Exact-error']['speedup_cold']:.1f} | {v['Exact-error']['speedup_warm']:.1f}")
         for cell, c in v["cells"].items():
             miss = "--" if c["miss_rate"] is None else f"{c['miss_rate']:.3f}"
             print(f"   {cell:<24}{c['speedup_cold']:>6.2f} ({c['speedup_cold_sd']:.2f}) |{c['speedup_warm']:>6.2f} ({c['speedup_warm_sd']:.2f})   miss {miss}   fallback {c['fallback']:.2f}   defined {c['defined']:.2f}")

@@ -1,4 +1,4 @@
-"""Experiments D and E: cost of the full-order fallback with and without a warm start, and the net speedup.
+﻿"""Experiments D and E: cost of the full-order fallback with and without a warm start, and the net speedup.
 
 Uses ``fea_engine.solve_contact_static_sparse`` for the full-order solve (cold start, or warm start ``active0``) and
 ``rom_engine.ContactROM`` for the reduced solve. BLAS and OpenMP are pinned to one thread before NumPy is imported.
@@ -150,7 +150,7 @@ def summarise_e(m: dict, tune: slice, evl: slice, cal_audit, rng) -> dict:
             tau, strict = fn(cal)
             row = pipeline_row(flagged(test, tau, strict), test, d, t_cold, t_warm, evl)
             out[f"{key[0]}|{key[1]}|{rule}"] = {"tau_defined": bool(np.isfinite(tau)), **row}
-        out[f"{key[0]}|{key[1]}|oracle"] = {"tau_defined": True, **pipeline_row(~test.converged | test.silent, test, d, t_cold, t_warm, evl)}
+        out[f"{key[0]}|{key[1]}|Exact-error"] = {"tau_defined": True, **pipeline_row(~test.converged | test.silent, test, d, t_cold, t_warm, evl)}
     return out
 
 

@@ -1,4 +1,4 @@
-"""Result numbers for the manuscript: every value of ``results/*.json`` as a key, plus derived summaries.
+﻿"""Result numbers for the manuscript: every value of ``results/*.json`` as a key, plus derived summaries.
 
 Flattening: the file stem (``_`` -> ``.``) and the JSON path give the key; ``|`` in experiment cell names becomes ``.``,
 the segment ``cells`` is dropped, and the two ends of an interval list become ``.0`` and ``.1``. Example:
@@ -173,8 +173,8 @@ def summary_numbers() -> dict:
             out[f"sum.J.{variant.split('@')[0]}.cc0.1.{kind}.max"] = f"{max(vals):.1f}"
     flag_all = [v["cells"]["eta@160|flag_all"]["speedup_warm"] for v in sp.values()]
     out["sum.J.flagall.warm.min"], out["sum.J.flagall.warm.max"] = f"{min(flag_all):.1f}", f"{max(flag_all):.1f}"
-    oracle = [v["oracle"]["speedup_cold"] for v in sp.values()]
-    out["sum.J.oracle.cold.min"], out["sum.J.oracle.cold.max"] = f"{min(oracle):.1f}", f"{max(oracle):.1f}"
+    Exact-error = [v["Exact-error"]["speedup_cold"] for v in sp.values()]
+    out["sum.J.Exact-error.cold.min"], out["sum.J.Exact-error.cold.max"] = f"{min(Exact-error):.1f}", f"{max(Exact-error):.1f}"
     xmiss = [v["cells"]["xconf@160|cc0.1"]["miss_rate"] for v in sp.values()]
     out["sum.J.xconf.cc0.1.miss.max"] = fmt_miss(max(xmiss))
     # H: condensed solver against the suite solver
@@ -183,7 +183,7 @@ def summary_numbers() -> dict:
         valid = [r for m in h["models"].values() for rule, r in m["rules"].items() if rule in ("cc0.05", "cc0.1")]
         out[f"sum.H.{name}.valid.cold.max"] = f"{max(r['speedup_cold'] for r in valid):.2f}"
         out[f"sum.H.{name}.valid.warm.max"] = f"{max(r['speedup_warm'] for r in valid):.2f}"
-        out[f"sum.H.{name}.oracle.cold.max"] = f"{max(m['rules']['oracle']['speedup_cold'] for m in h['models'].values()):.2f}"
+        out[f"sum.H.{name}.Exact-error.cold.max"] = f"{max(m['rules']['Exact-error']['speedup_cold'] for m in h['models'].values()):.2f}"
         out[f"sum.H.{name}.valid.cold.min"] = f"{min(r['speedup_cold'] for r in valid):.2f}"
     # J: one-time costs per replicate (means over replicates) and break-even with all of them
     j = load("learned_speedup_layered.json")
@@ -225,7 +225,7 @@ def summary_numbers() -> dict:
     # L: cells (variant, eps', alpha, model, benchmark) in which lower-threshold calibration beat the standard rule,
     # i.e. was defined more often or had a lower false-alarm rate by more than TOL; M: largest |miss - alpha| where defined
     tol, total, dev = 0.005, 0, {0.05: 0.0, 0.1: 0.0}
-    fpr_lower, cp_def_more, oracle_def_more, oracle_def_gain = 0, 0, 0, 0.0
+    fpr_lower, cp_def_more, exact_error_def_more, exact_error_def_gain = 0, 0, 0, 0.0
     for name in PROBLEMS:
         ff = load(f"fewfailures_{name}.json")
         for k, c in ff["L"].items():
@@ -239,14 +239,14 @@ def summary_numbers() -> dict:
                 if variant == "cp":
                     cp_def_more += 1
                 else:
-                    oracle_def_more += 1
-                    oracle_def_gain = max(oracle_def_gain, c["defined"] - std["defined"])
+                    exact_error_def_more += 1
+                    exact_error_def_gain = max(exact_error_def_gain, c["defined"] - std["defined"])
         for k, c in ff["M"].items():
             alpha = float(k.split("|")[3])
             if c["defined"] == 1.0 and c["miss"] is not None:
                 dev[alpha] = max(dev[alpha], abs(c["miss"] - alpha))
     out.update({"sum.L.cells": str(total), "sum.L.fprlower": str(fpr_lower), "sum.L.cp.defmore": str(cp_def_more),
-                "sum.L.oracle.defmore": str(oracle_def_more), "sum.L.oracle.defgain": f"{oracle_def_gain:.2f}"})
+                "sum.L.Exact-error.defmore": str(exact_error_def_more), "sum.L.Exact-error.defgain": f"{exact_error_def_gain:.2f}"})
     out["sum.M.maxdev.0.05"], out["sum.M.maxdev.0.1"] = fmt_miss(dev[0.05]), fmt_miss(dev[0.1])
     # S: residual-projection features against the base learned indicator, every cell (model, budget, alpha, variant)
     lower, higher, cells, best_drop, worst_rise, s_miss = 0, 0, 0, 0.0, 0.0, 0.0

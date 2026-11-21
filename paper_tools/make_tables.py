@@ -1,4 +1,4 @@
-"""Write the manuscript tables to ``paper/tables/*.tex`` from generated keys (manuscript_plan.md Sections 4 and 6).
+﻿"""Write the manuscript tables to ``paper/tables/*.tex`` from generated keys (manuscript_plan.md Sections 4 and 6).
 
 Every cell is a ``\\R{key}`` reference, so the tables use the same rounding as the text. Each key is checked against
 ``paper/numbers.tex`` (run ``make_numbers.py`` first); a missing key stops the script.
@@ -88,7 +88,7 @@ def layered_speedup_table(R: Cells) -> str:
         for variant in ("eta@160", "xconf@160"):
             c = f"{pre}.{variant}.cc0.1"
             cells += [f"{R(c + '.speedup_cold')} / {R(c + '.speedup_warm')}", R(c + ".miss_rate"), R(c + ".fallback")]
-        cells.append(f"{R(pre + '.oracle.speedup_cold')} / {R(pre + '.oracle.speedup_warm')}")
+        cells.append(f"{R(pre + '.Exact-error.speedup_cold')} / {R(pre + '.Exact-error.speedup_warm')}")
         rows.append(f"NMF {r} & " + " & ".join(cells) + " \\\\")
     return ("\\begin{tabular}{lrrrrrrrr}\n\\toprule\n"
             " & & \\multicolumn{3}{c}{$\\eta$, $\\cc(0.1)$} & \\multicolumn{3}{c}{cross-fitted, $\\xconf(0.1)$} & exact-error \\\\\n"

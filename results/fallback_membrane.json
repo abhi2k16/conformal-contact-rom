@@ -1,4 +1,4 @@
-{
+﻿{
  "problem": "membrane",
  "n_time": 60,
  "repeats": 3,
@@ -325,7 +325,7 @@
    "speedup_cold": 0.9563362612719271,
    "speedup_warm": 1.4478186773422526
   },
-  "svd|24|oracle": {
+  "svd|24|Exact-error": {
    "tau_defined": true,
    "fallback": 1.0,
    "missed": 0,
@@ -379,7 +379,7 @@
    "speedup_cold": 0.9479947261399441,
    "speedup_warm": 1.849986626871869
   },
-  "nmf|12|oracle": {
+  "nmf|12|Exact-error": {
    "tau_defined": true,
    "fallback": 1.0,
    "missed": 0,
@@ -433,7 +433,7 @@
    "speedup_cold": 0.9424050942112157,
    "speedup_warm": 1.9898496743345762
   },
-  "nmf|24|oracle": {
+  "nmf|24|Exact-error": {
    "tau_defined": true,
    "fallback": 0.5333333333333333,
    "missed": 0,
@@ -487,7 +487,7 @@
    "speedup_cold": 0.9350684491230123,
    "speedup_warm": 2.078452401083809
   },
-  "nmf|36|oracle": {
+  "nmf|36|Exact-error": {
    "tau_defined": true,
    "fallback": 0.16666666666666666,
    "missed": 0,
@@ -541,7 +541,7 @@
    "speedup_cold": 0.9268888992474716,
    "speedup_warm": 1.996076778058353
   },
-  "nmf|48|oracle": {
+  "nmf|48|Exact-error": {
    "tau_defined": true,
    "fallback": 0.1,
    "missed": 0,

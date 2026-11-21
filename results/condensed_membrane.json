@@ -1,4 +1,4 @@
-{
+﻿{
  "problem": "membrane",
  "n_time": 60,
  "repeats": 3,
@@ -96,7 +96,7 @@
       "speedup_cold": 0.5659321107133418,
       "speedup_warm": 0.715877681346735
      },
-     "oracle": {
+     "Exact-error": {
       "tau_defined": true,
       "fallback": 1.0,
       "missed": 0,
@@ -159,7 +159,7 @@
       "speedup_cold": 0.5454556488826845,
       "speedup_warm": 0.7326292789483505
      },
-     "oracle": {
+     "Exact-error": {
       "tau_defined": true,
       "fallback": 1.0,
       "missed": 0,
@@ -222,7 +222,7 @@
       "speedup_cold": 0.5069265833689027,
       "speedup_warm": 0.6852559285576464
      },
-     "oracle": {
+     "Exact-error": {
       "tau_defined": true,
       "fallback": 0.5333333333333333,
       "missed": 0,
@@ -285,7 +285,7 @@
       "speedup_cold": 0.45280357135712646,
       "speedup_warm": 0.602304752221044
      },
-     "oracle": {
+     "Exact-error": {
       "tau_defined": true,
       "fallback": 0.16666666666666666,
       "missed": 0,
@@ -348,7 +348,7 @@
       "speedup_cold": 0.41922407711182313,
       "speedup_warm": 0.540739581553287
      },
-     "oracle": {
+     "Exact-error": {
       "tau_defined": true,
       "fallback": 0.1,
       "missed": 0,

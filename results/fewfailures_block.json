@@ -1,4 +1,4 @@
-{
+﻿{
  "problem": "block",
  "n_replicates": 8,
  "n_splits": 100,
@@ -85,7 +85,7 @@
    "defined": 1.0,
    "n_silent_test": 73122
   },
-  "nmf|8|oracle|0.05|0.01": {
+  "nmf|8|Exact-error|0.05|0.01": {
    "miss": 0.008711468504690791,
    "miss_ci": [
     0.003162776789518505,
@@ -125,7 +125,7 @@
    "defined": 1.0,
    "n_silent_test": 73122
   },
-  "nmf|8|oracle|0.05|0.02": {
+  "nmf|8|Exact-error|0.05|0.02": {
    "miss": 0.00901233554880884,
    "miss_ci": [
     0.003473491288425846,
@@ -165,7 +165,7 @@
    "defined": 1.0,
    "n_silent_test": 73122
   },
-  "nmf|8|oracle|0.05|0.03": {
+  "nmf|8|Exact-error|0.05|0.03": {
    "miss": 0.014523672766062198,
    "miss_ci": [
     0.009059677110048875,
@@ -205,7 +205,7 @@
    "defined": 1.0,
    "n_silent_test": 73122
   },
-  "nmf|8|oracle|0.05|0.04": {
+  "nmf|8|Exact-error|0.05|0.04": {
    "miss": 0.02439758212302727,
    "miss_ci": [
     0.01660661535489157,
@@ -265,7 +265,7 @@
    "defined": 1.0,
    "n_silent_test": 73122
   },
-  "nmf|8|oracle|0.1|0.01": {
+  "nmf|8|Exact-error|0.1|0.01": {
    "miss": 0.040986296873717895,
    "miss_ci": [
     0.032313298856742154,
@@ -305,7 +305,7 @@
    "defined": 1.0,
    "n_silent_test": 73122
   },
-  "nmf|8|oracle|0.1|0.02": {
+  "nmf|8|Exact-error|0.1|0.02": {
    "miss": 0.04258636251743661,
    "miss_ci": [
     0.03410348918800473,
@@ -345,7 +345,7 @@
    "defined": 1.0,
    "n_silent_test": 73122
   },
-  "nmf|8|oracle|0.1|0.03": {
+  "nmf|8|Exact-error|0.1|0.03": {
    "miss": 0.052186756379748914,
    "miss_ci": [
     0.0452407582666552,
@@ -385,7 +385,7 @@
    "defined": 1.0,
    "n_silent_test": 73122
   },
-  "nmf|8|oracle|0.1|0.04": {
+  "nmf|8|Exact-error|0.1|0.04": {
    "miss": 0.06413938349607505,
    "miss_ci": [
     0.05686371422414765,
@@ -445,7 +445,7 @@
    "defined": 0.95125,
    "n_silent_test": 33023
   },
-  "nmf|12|oracle|0.05|0.01": {
+  "nmf|12|Exact-error|0.05|0.01": {
    "miss": 0.001847197407867244,
    "miss_ci": [
     0.00042541272778382855,
@@ -485,7 +485,7 @@
    "defined": 0.56625,
    "n_silent_test": 33023
   },
-  "nmf|12|oracle|0.05|0.02": {
+  "nmf|12|Exact-error|0.05|0.02": {
    "miss": 0.0018774793325863793,
    "miss_ci": [
     0.0004179873601200355,
@@ -525,7 +525,7 @@
    "defined": 0.56625,
    "n_silent_test": 33023
   },
-  "nmf|12|oracle|0.05|0.03": {
+  "nmf|12|Exact-error|0.05|0.03": {
    "miss": 0.0027253732247221633,
    "miss_ci": [
     0.0010553106958842882,
@@ -565,7 +565,7 @@
    "defined": 0.56625,
    "n_silent_test": 33023
   },
-  "nmf|12|oracle|0.05|0.04": {
+  "nmf|12|Exact-error|0.05|0.04": {
    "miss": 0.006238076492141841,
    "miss_ci": [
     0.003235005403274734,
@@ -625,7 +625,7 @@
    "defined": 1.0,
    "n_silent_test": 33023
   },
-  "nmf|12|oracle|0.1|0.01": {
+  "nmf|12|Exact-error|0.1|0.01": {
    "miss": 0.012021924113496655,
    "miss_ci": [
     0.0033934186357834437,
@@ -665,7 +665,7 @@
    "defined": 0.99625,
    "n_silent_test": 33023
   },
-  "nmf|12|oracle|0.1|0.02": {
+  "nmf|12|Exact-error|0.1|0.02": {
    "miss": 0.012809254156194168,
    "miss_ci": [
     0.004030885683582294,
@@ -705,7 +705,7 @@
    "defined": 0.99625,
    "n_silent_test": 33023
   },
-  "nmf|12|oracle|0.1|0.03": {
+  "nmf|12|Exact-error|0.1|0.03": {
    "miss": 0.019743814916876115,
    "miss_ci": [
     0.009921441148584587,
@@ -745,7 +745,7 @@
    "defined": 0.99625,
    "n_silent_test": 33023
   },
-  "nmf|12|oracle|0.1|0.04": {
+  "nmf|12|Exact-error|0.1|0.04": {
    "miss": 0.029070647730369742,
    "miss_ci": [
     0.017748900487032045,
@@ -805,7 +805,7 @@
    "defined": 0.42625,
    "n_silent_test": 21502
   },
-  "nmf|16|oracle|0.05|0.01": {
+  "nmf|16|Exact-error|0.05|0.01": {
    "miss": 0.0015812482559761883,
    "miss_ci": [
     0.0,
@@ -845,7 +845,7 @@
    "defined": 0.02625,
    "n_silent_test": 21502
   },
-  "nmf|16|oracle|0.05|0.02": {
+  "nmf|16|Exact-error|0.05|0.02": {
    "miss": 0.0014882336526834713,
    "miss_ci": [
     0.0,
@@ -885,7 +885,7 @@
    "defined": 0.02625,
    "n_silent_test": 21502
   },
-  "nmf|16|oracle|0.05|0.03": {
+  "nmf|16|Exact-error|0.05|0.03": {
    "miss": 0.0014882336526834713,
    "miss_ci": [
     9.665969462494555e-05,
@@ -925,7 +925,7 @@
    "defined": 0.03125,
    "n_silent_test": 21502
   },
-  "nmf|16|oracle|0.05|0.04": {
+  "nmf|16|Exact-error|0.05|0.04": {
    "miss": 0.0038135987350013953,
    "miss_ci": [
     0.00038887012557057383,
@@ -985,7 +985,7 @@
    "defined": 0.99125,
    "n_silent_test": 21502
   },
-  "nmf|16|oracle|0.1|0.01": {
+  "nmf|16|Exact-error|0.1|0.01": {
    "miss": 0.006790066040368338,
    "miss_ci": [
     0.0016824462735896514,
@@ -1025,7 +1025,7 @@
    "defined": 0.80875,
    "n_silent_test": 21502
   },
-  "nmf|16|oracle|0.1|0.02": {
+  "nmf|16|Exact-error|0.1|0.02": {
    "miss": 0.0071156171518928476,
    "miss_ci": [
     0.001831089752421784,
@@ -1065,7 +1065,7 @@
    "defined": 0.80875,
    "n_silent_test": 21502
   },
-  "nmf|16|oracle|0.1|0.03": {
+  "nmf|16|Exact-error|0.1|0.03": {
    "miss": 0.010510650172077016,
    "miss_ci": [
     0.004953103849092583,
@@ -1105,7 +1105,7 @@
    "defined": 0.81,
    "n_silent_test": 21502
   },
-  "nmf|16|oracle|0.1|0.04": {
+  "nmf|16|Exact-error|0.1|0.04": {
    "miss": 0.02074225653427588,
    "miss_ci": [
     0.010870649247033012,
@@ -1165,7 +1165,7 @@
    "defined": 0.0,
    "n_silent_test": 5529
   },
-  "nmf|24|oracle|0.05|0.01": {
+  "nmf|24|Exact-error|0.05|0.01": {
    "miss": 0.0,
    "miss_ci": [
     0.0,
@@ -1205,7 +1205,7 @@
    "defined": 0.0,
    "n_silent_test": 5529
   },
-  "nmf|24|oracle|0.05|0.02": {
+  "nmf|24|Exact-error|0.05|0.02": {
    "miss": 0.0,
    "miss_ci": [
     0.0,
@@ -1245,7 +1245,7 @@
    "defined": 0.0,
    "n_silent_test": 5529
   },
-  "nmf|24|oracle|0.05|0.03": {
+  "nmf|24|Exact-error|0.05|0.03": {
    "miss": 0.0,
    "miss_ci": [
     0.0,
@@ -1285,7 +1285,7 @@
    "defined": 0.0,
    "n_silent_test": 5529
   },
-  "nmf|24|oracle|0.05|0.04": {
+  "nmf|24|Exact-error|0.05|0.04": {
    "miss": 0.0,
    "miss_ci": [
     0.0,
@@ -1345,7 +1345,7 @@
    "defined": 0.11,
    "n_silent_test": 5529
   },
-  "nmf|24|oracle|0.1|0.01": {
+  "nmf|24|Exact-error|0.1|0.01": {
    "miss": 0.0,
    "miss_ci": [
     0.0,
@@ -1385,7 +1385,7 @@
    "defined": 0.0,
    "n_silent_test": 5529
   },
-  "nmf|24|oracle|0.1|0.02": {
+  "nmf|24|Exact-error|0.1|0.02": {
    "miss": 0.00018086453246518358,
    "miss_ci": [
     0.0,
@@ -1425,7 +1425,7 @@
    "defined": 0.0,
    "n_silent_test": 5529
   },
-  "nmf|24|oracle|0.1|0.03": {
+  "nmf|24|Exact-error|0.1|0.03": {
    "miss": 0.0,
    "miss_ci": [
     0.0,
@@ -1465,7 +1465,7 @@
    "defined": 0.00125,
    "n_silent_test": 5529
   },
-  "nmf|24|oracle|0.1|0.04": {
+  "nmf|24|Exact-error|0.1|0.04": {
    "miss": 0.0010851871947911015,
    "miss_ci": [
     0.0,
