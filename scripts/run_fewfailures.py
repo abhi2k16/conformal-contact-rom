@@ -3,7 +3,7 @@
 L, lower-threshold calibration. Failures at a lower tolerance eps' < eps are more frequent. Since every failure at eps
 is one at eps', calibrating cc at level alpha' on the eps'-failures gives P(miss | e > eps) <= alpha' / r with
 r = P(e > eps | e > eps'). The rule targets alpha at eps with alpha' = alpha * r, where r is either
-  * ``Exact-error``: exact pool-wide ratio p/p' of the whole replicate pool (uses test information; retained as an internal variant name), or
+  * ``exact_ratio``: exact pool-wide ratio p/p' of the whole replicate pool (uses test information; retained as an internal variant name), or
   * ``cp``: a one-sided Clopper-Pearson lower bound on r from the calibration set at level ``BETA``, so that the bound
     holds with probability at least 1 - BETA over the calibration draw (a PAC-type statement, not a marginal one).
 The expected calibration size is (1/(alpha r) - 1) r / p' ... = 1/(alpha p) - r/p, never below the standard
@@ -72,7 +72,7 @@ def lower_threshold_rows(eta, err, conv, cal, test, r_pool: dict) -> dict:
         for eps_low in EPS_LOW:
             fail_low = conv[cal] & (err[cal] > eps_low)
             n_low, n_high = int(fail_low.sum()), int((conv[cal] & (err[cal] > EPS)).sum())
-            for variant, r in (("Exact-error", r_pool[eps_low]), ("cp", cp_lower(n_high, n_low, BETA) if n_low else 0.0)):
+            for variant, r in (("exact_ratio", r_pool[eps_low]), ("cp", cp_lower(n_high, n_low, BETA) if n_low else 0.0)):
                 tau = conformal_threshold(eta[cal][fail_low], alpha * r) if r > 0 else -np.inf
                 out[f"{variant}|{alpha}|{eps_low}"] = counts(err[test], conv[test], eta[test] >= tau, np.isfinite(tau))
     return out
@@ -164,7 +164,7 @@ def print_tables(out: dict, models: list) -> None:
             c = out["L"][f"{kind}|{r}|standard|{alpha}|{out['eps']}"]
             line = f"{kind}{r:<3} a={alpha:<5} standard {f(c['miss'])} {f(c['fpr'])} {c['defined']:.2f}"
             for e in EPS_LOW:
-                for v in ("Exact-error", "cp"):
+                for v in ("exact_ratio", "cp"):
                     c = out["L"][f"{kind}|{r}|{v}|{alpha}|{e}"]
                     line += f" | {v}@{e} {f(c['miss'])} {f(c['fpr'])} {c['defined']:.2f}"
             print(line)

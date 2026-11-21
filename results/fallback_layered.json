@@ -325,7 +325,7 @@
    "speedup_cold": 0.9929595497950848,
    "speedup_warm": 1.2007326795561015
   },
-  "svd|12|Exact-error": {
+  "svd|12|exact_error": {
    "tau_defined": true,
    "fallback": 1.0,
    "missed": 0,
@@ -379,7 +379,7 @@
    "speedup_cold": 0.9930255962058012,
    "speedup_warm": 1.5382304084017526
   },
-  "nmf|8|Exact-error": {
+  "nmf|8|exact_error": {
    "tau_defined": true,
    "fallback": 0.26666666666666666,
    "missed": 0,
@@ -433,7 +433,7 @@
    "speedup_cold": 0.9926243023410765,
    "speedup_warm": 1.7320905447505521
   },
-  "nmf|12|Exact-error": {
+  "nmf|12|exact_error": {
    "tau_defined": true,
    "fallback": 0.2,
    "missed": 0,
@@ -487,7 +487,7 @@
    "speedup_cold": 0.9923374337096127,
    "speedup_warm": 1.7619266520944559
   },
-  "nmf|16|Exact-error": {
+  "nmf|16|exact_error": {
    "tau_defined": true,
    "fallback": 0.06666666666666667,
    "missed": 0,
@@ -541,7 +541,7 @@
    "speedup_cold": 0.9924170170568729,
    "speedup_warm": 1.7850948875492534
   },
-  "nmf|24|Exact-error": {
+  "nmf|24|exact_error": {
    "tau_defined": true,
    "fallback": 0.06666666666666667,
    "missed": 0,

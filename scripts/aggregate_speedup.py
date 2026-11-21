@@ -65,11 +65,11 @@ def main() -> None:
                  "n_silent_per_replicate": n_silent}
         for key in ("t_cold_ms_mean", "t_warm_ms_mean", "t_rom_ms_mean", "t_feat_ms_mean"):
             entry[key], entry[f"{key}_ci"] = mean_ci([m[key] for m in per], rng)
-        Exact-error = {}
+        exact_error = {}
         for key in ("fallback", "speedup_cold", "speedup_warm"):
-            Exact-error[key], Exact-error[f"{key}_ci"] = mean_ci([m["Exact-error"][key] for m in per], rng)
-        Exact-error["missed"], Exact-error["n_silent"] = int(sum(m["Exact-error"]["missed"] for m in per)), int(sum(n_silent))
-        entry["Exact-error"] = Exact-error
+            exact_error[key], exact_error[f"{key}_ci"] = mean_ci([m["exact_error"][key] for m in per], rng)
+        exact_error["missed"], exact_error["n_silent"] = int(sum(m["exact_error"]["missed"] for m in per)), int(sum(n_silent))
+        entry["exact_error"] = exact_error
         names = sorted({c for m in per for c in m["cells"]}, key=lambda c: list(first["models"][name]["cells"]).index(c)
                        if c in first["models"][name]["cells"] else 99)
         entry["cells"] = {}

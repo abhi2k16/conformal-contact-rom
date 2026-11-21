@@ -95,7 +95,7 @@ def summarise(m: dict, condensed, tune: slice, evl: slice, cal_audit, rng) -> di
             tau, strict = fn(cal)
             entry["rules"][rule] = {"tau_defined": bool(np.isfinite(tau)),
                                     **pipeline_row(flagged(test, tau, strict), test, d, t_cond, t_warm, evl)}
-        entry["rules"]["Exact-error"] = {"tau_defined": True, **pipeline_row(~test.converged | test.silent, test, d, t_cond, t_warm, evl)}
+        entry["rules"]["exact_error"] = {"tau_defined": True, **pipeline_row(~test.converged | test.silent, test, d, t_cond, t_warm, evl)}
         out["models"][f"{key[0]}|{key[1]}"] = entry
     return out
 

@@ -63,7 +63,7 @@
    "t_warm_ms_mean": 284.233010000086,
    "t_rom_ms_mean": 3.183798332732598,
    "t_feat_ms_mean": 0.44136583292129217,
-   "Exact-error": {
+   "exact_error": {
     "fallback": 0.45,
     "missed": 0,
     "n_silent": 54,
@@ -221,7 +221,7 @@
    "t_warm_ms_mean": 263.8108183332709,
    "t_rom_ms_mean": 3.1966850000268705,
    "t_feat_ms_mean": 0.4435349999160584,
-   "Exact-error": {
+   "exact_error": {
     "fallback": 0.2,
     "missed": 0,
     "n_silent": 24,
@@ -379,7 +379,7 @@
    "t_warm_ms_mean": 257.65991500029486,
    "t_rom_ms_mean": 3.243010000187496,
    "t_feat_ms_mean": 0.44087333317293087,
-   "Exact-error": {
+   "exact_error": {
     "fallback": 0.14166666666666666,
     "missed": 0,
     "n_silent": 17,
@@ -537,7 +537,7 @@
    "t_warm_ms_mean": 248.058925833296,
    "t_rom_ms_mean": 3.3067900001697126,
    "t_feat_ms_mean": 0.44779916691671434,
-   "Exact-error": {
+   "exact_error": {
     "fallback": 0.05,
     "missed": 0,
     "n_silent": 6,
