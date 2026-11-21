@@ -91,7 +91,7 @@ def layered_speedup_table(R: Cells) -> str:
         cells.append(f"{R(pre + '.oracle.speedup_cold')} / {R(pre + '.oracle.speedup_warm')}")
         rows.append(f"NMF {r} & " + " & ".join(cells) + " \\\\")
     return ("\\begin{tabular}{lrrrrrrrr}\n\\toprule\n"
-            " & & \\multicolumn{3}{c}{$\\eta$, $\\cc(0.1)$} & \\multicolumn{3}{c}{cross-fitted, $\\xconf(0.1)$} & oracle \\\\\n"
+            " & & \\multicolumn{3}{c}{$\\eta$, $\\cc(0.1)$} & \\multicolumn{3}{c}{cross-fitted, $\\xconf(0.1)$} & exact-error \\\\\n"
             "\\cmidrule(lr){3-5}\\cmidrule(lr){6-8}\n"
             "Model & $p$ & speedup & miss & fallback & speedup & miss & fallback & speedup \\\\\n\\midrule\n"
             + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular}\n")

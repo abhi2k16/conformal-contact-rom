@@ -184,7 +184,7 @@ def fmt_p(x: float) -> str:
 
 
 def layered_speedup() -> None:
-    """Net speedup on the layered block, cc(0.1): eta against the cross-fitted indicator, warm fallback, with the oracle."""
+    """Net speedup on the layered block, cc(0.1): eta against the cross-fitted indicator, warm fallback, with the exact-error screen."""
     models = load("learned_speedup_layered.json")["models"]
     names = list(models)
     fig, ax = plt.subplots(figsize=(SINGLE, 0.6 * SINGLE))
@@ -195,7 +195,7 @@ def layered_speedup() -> None:
         ax.bar([i + (j - 0.5) * width for i in range(len(names))], [c["speedup_warm"] for c in cells], width,
                yerr=[[c["speedup_warm"] - c["speedup_warm_ci"][0] for c in cells], [c["speedup_warm_ci"][1] - c["speedup_warm"] for c in cells]],
                capsize=3, color=color, label=label)
-    ax.plot(range(len(names)), [models[n]["oracle"]["speedup_warm"] for n in names], "k_", ms=22, mew=2, label="oracle screen")
+    ax.plot(range(len(names)), [models[n]["oracle"]["speedup_warm"] for n in names], "k_", ms=22, mew=2, label="exact-error screen")
     ax.axhline(1.0, color="0.3", lw=0.8)
     ax.set_xticks(range(len(names)), [f"NMF {n.split('|')[1]}\n$p = {fmt_p(models[n]['silent_rate'])}$" for n in names])
     ax.set_ylabel("net speedup, warm fallback")

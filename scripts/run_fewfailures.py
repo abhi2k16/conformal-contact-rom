@@ -3,7 +3,7 @@
 L, lower-threshold calibration. Failures at a lower tolerance eps' < eps are more frequent. Since every failure at eps
 is one at eps', calibrating cc at level alpha' on the eps'-failures gives P(miss | e > eps) <= alpha' / r with
 r = P(e > eps | e > eps'). The rule targets alpha at eps with alpha' = alpha * r, where r is either
-  * ``oracle``: the ratio p/p' of the whole replicate pool (uses test information; checks the idea), or
+  * ``oracle``: exact pool-wide ratio p/p' of the whole replicate pool (uses test information; retained as an internal variant name), or
   * ``cp``: a one-sided Clopper-Pearson lower bound on r from the calibration set at level ``BETA``, so that the bound
     holds with probability at least 1 - BETA over the calibration draw (a PAC-type statement, not a marginal one).
 The expected calibration size is (1/(alpha r) - 1) r / p' ... = 1/(alpha p) - r/p, never below the standard

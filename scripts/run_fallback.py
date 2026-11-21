@@ -14,7 +14,7 @@ D. Per query: iterations and best-of-``--repeats`` wall time of the cold and the
    are the proxy); number of solves that needed a fallback route.
 E. Net speedup of the screened pipeline per rule: every query pays the reduced solve and the indicator; a flagged query
    additionally pays a fallback (cold, or warm with the chosen seed). Speedup = mean cold full-order time / mean
-   pipeline time. Reference lines: the *oracle* screen flags exactly the silent failures (upper bound on the speedup
+   pipeline time. Reference lines: the *exact-error* screen flags exactly the silent failures (upper bound on the speedup
    at zero miss rate); a *random* screen with the same flag share has the same speedup in expectation but misses a
    fraction ``1 - share`` of the silent failures, which is what shows the value of the indicator. Thresholds are
    calibrated on 160 queries of the saved audit pool of replicate 0 (same models); the timed queries are fresh, so
@@ -137,7 +137,7 @@ def pipeline_row(fl: np.ndarray, test, d: dict, t_cold: np.ndarray, t_warm: np.n
 
 
 def summarise_e(m: dict, tune: slice, evl: slice, cal_audit, rng) -> dict:
-    """Net speedup per model and rule (plus the oracle) on the evaluation half; thresholds from ``N_CAL`` audit-pool queries."""
+    """Net speedup per model and rule (plus the exact-error screen) on the evaluation half; thresholds from ``N_CAL`` audit-pool queries."""
     out, t_cold = {}, m["fom"]["t_cold"][evl]
     for key, d in m["models"].items():
         g = lambda f: cal_audit.arrays[f"pool|{key[0]}|{key[1]}|{f}"]
